@@ -97,13 +97,21 @@ let
         exportReferencesGraph = [ "refs" env ];
       }
       ''
-        mkdir -p .envroot/nix/store
+        mkdir -p tmp/.envroot/nix/store
         cat ${closure} | while read dep; do
-          cp -a $dep .envroot/nix/store/
+          cp -a $dep tmp/.envroot/nix/store/
         done
+        mkdir -p tmp/.envroot/nix/var/nix
+        cat refs >tmp/.envroot/nix/var/nix/db-refs
+        ln -sf .envroot${env} tmp/env
+        ./tmp/env nix-store --optimise
+        chmod -R u+w tmp/.envroot/nix/store/.links
+        rm -rf tmp/.envroot/nix/store/.links
+        mkdir -p .envroot/nix
+        mv tmp/.envroot/nix/store .envroot/nix/
+        mv tmp/env ./
         mkdir -p .envroot/nix/var/nix
         cat refs >.envroot/nix/var/nix/db-refs
-        ln -sf .envroot${env} env
         tar c --sort=name --owner 0 --group 0 --numeric-owner --mtime=@1 -- .envroot env | gzip -9n >$out
       '';
   bootstrapEnvTgz = mkEnvTgz {
