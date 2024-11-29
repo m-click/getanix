@@ -1,6 +1,339 @@
 // SPDX-FileCopyrightText: © 2024 m-click.aero GmbH <https://m-click.aero>
 // SPDX-License-Identifier: Apache-2.0
+:toc:
+:toc-placement!:
 
 = Getanix
 
-The magic recipe to bootstrap yourself a portable Nix-based environment.
+Getanix knows the magic recipe to bootstrap a portable Nix-based environment.
+
+---
+
+toc::[]
+
+== Introduction
+
+If you want to create a declarative and reproducible development
+environment for your project, Nix is a very good choice. However, to
+share that with other team members, wouldn't it be great if they could
+use that environment without having to install Nix or NixOS, perhaps
+without even knowing anything about Nix at all? Ideally, they would
+just download and unpack a single directory, which they can unpack
+anywhere they like, move around freely, and which contains everything
+they need to work on your project.
+
+Depending on your background, you might immediately think either
+"Great, I'll provide a virtual machine!" or "Great, I'll provide a
+container!". But then, wouldn't it be even more convenient if the
+others didn't have to bother with VirtualBox or Qemu, and if they
+didn't have to know anything about Docker or Podman? What if you could
+use a container that is so lightweight that it adds zero startup and
+runtime overhead, and so tiny that you can just ship it as part of
+your environment? Wouldn't our development and deployment be a lot
+easier if we could get along with just a tiny sandbox like
+Bubblewrap?
+
+It seems that setting this up should be easily possible, especially
+with Nix, given the large amount of automation and convenience
+functions in Nix and especially Nixpkgs.  Still, creating such a
+package is more involved than expected.  Everything is almost there,
+almost, but not quite yet, not completely, and certainly not seamless.
+
+Getanix is there to fill in the gaps, and provides everything as a
+single, convenient tool.
+
+More precisely, Getanix is a portable Nix environment, as well as a
+library to create your own environments. Everything is written in the
+Nix language, as proper Nix derivations, for a seamless development,
+being able to bootstrap itself in the most convenient way.
+
+== Basic usage
+
+=== First incarnation
+
+Let's start by entering one of your projects for which you want to
+create a declarative and reproducible development environment. If you
+don't have one at hand, just start from scratch with an empty project
+directory:
+
+----------------------------------------------------------------------
+mkdir my-project
+cd my-project
+----------------------------------------------------------------------
+
+As a first step, we will create a simple development environment with
+Asciidoctor, Bash, some typical Unix tools, Nix and Python. Note how
+we are pinning the current Nixpkgs version as well as the Getanix
+version with the respective cryptographic hash:
+
+----------------------------------------------------------------------
+cat >example-env.nix <<'EOF'
+let
+  pkgs = import (builtins.fetchTarball {
+    url = "https://github.com/NixOS/nixpkgs/archive/63dacb46bf939521bdc93981b4cbb7ecb58427a0.tar.gz";
+    sha256 = "1lr1h35prqkd1mkmzriwlpvxcb34kmhc9dnr48gkm8hh089hifmx";
+  }) { config = {}; overlays = []; };
+  getanix = import (pkgs.fetchurl {
+    url = "https://github.com/m-click/getanix/raw/refs/tags/0.2/default.nix";
+    hash = "sha256-sX10Oa9AH7ueyCuDv+jrmSh0gBRMTkBcN8NPGtEeOlA=";
+  }) { inherit pkgs; };
+in
+rec {
+  env = getanix.mkEnv {
+    packages = [
+      pkgs.asciidoctor
+      pkgs.bashInteractive
+      pkgs.coreutils
+      pkgs.findutils
+      pkgs.nix
+      pkgs.python3
+    ];
+  };
+}
+EOF
+----------------------------------------------------------------------
+
+If you are unsure about the exact Nix package names of your project
+dependencies, just have a look at the NixOS Search:
+
+_________________________________
+https://search.nixos.org/packages
+_________________________________
+
+Since our description is a `.nix` file, we need the Nix tool to build
+our environment. Nix will be part of our environment, but that is not
+yet built. So we have a classic chicken-and-egg problem and need to
+bootstrap ourselves. We can use any Nix tool or NixOS system for that
+purpose, but for the sake of demonstration, let's assume that we can't
+or don't want to install Nix. The most convenient option is then the
+portable `getanix-env` which we can download, verify and unpack as
+follows:
+
+----------------------------------------------------------------------
+curl -#LOf https://github.com/m-click/getanix/releases/download/0.2/getanix-env.tgz \
+  && echo 12f7ae5440e3a225116a8e90341b43d09ba2a1ed920f9277ae9abde231051399 getanix-env.tgz | sha256sum -c \
+  && tar xf getanix-env.tgz
+----------------------------------------------------------------------
+
+The last command will unpack a subdirectory `.envroot` that contains a
+local Nix store, as well as an entry program `env`. The latter is
+actually a symlink, as the original file is also in the
+store.
+
+After unpacking, this environment is ready to use. We don't need to
+install or setup anything. We can unpack it anywhere, and move it
+around freely. There is one caveat, though: Deletion is a bit
+cumbersome, because the files and directories in a Nix store are
+always read-only. So we need to execute `chmod -R u+w .envroot` before
+we can delete it.
+
+Now let's build the first incarnation of our example environment:
+
+----------------------------------------------------------------------
+./env nix-build example-env.nix -o example-env
+----------------------------------------------------------------------
+
+=== Running some commands
+
+As usual in Nix, the new environment resides in the same Nix store (in
+`.envroot`) and reuses as much as possible from the first one. A new
+symlink `example-env` is created and points to the new environment. It
+can be used the same way as the first environment, that is, just
+prefix your commands with the environment:
+
+----------------------------------------------------------------------
+./example-env asciidoctor --version
+./example-env python --version
+----------------------------------------------------------------------
+
+=== Running a shell
+
+Since our environment contains `bashInteractive`, we can also launch a
+local shell:
+
+----------------------------------------------------------------------
+./example-env bash
+----------------------------------------------------------------------
+
+Compared to `nix-shell`, this one always starts immediately, but is
+nevertheless reasonably sandboxed. In particular, only files in the
+current directory and subdirectories are reachable, as well as the
+environment itself. This is to prevent accidential dependencies on the
+surrounding system.
+
+=== Second incarnation
+
+Our new environment also contains Nix, so we can use it to build
+itself. Since we didn't change our `example-env.nix` so far,
+`nix-build` will notice that there is nothing to do. It produces an
+identical environment and even produces the exact same symlink:
+
+----------------------------------------------------------------------
+./example-env nix-build example-env.nix -o new-example-env
+readlink example-env new-example-env
+----------------------------------------------------------------------
+
+We can now replace the bootstrapping `env` with our new `example-env`,
+but we will keep the old one as `old-env` just to be safe:
+
+----------------------------------------------------------------------
+mv env old-env
+mv example-env env
+----------------------------------------------------------------------
+
+=== Updating the env
+
+Let's now add some Python packages to our example environment:
+
+----------------------------------------------------------------------
+patch example-env.nix <<'EOF'
+@@ -0,3 +0,7 @@
+       pkgs.nix
+-      pkgs.python3
++      (pkgs.python3.withPackages (ps: [
++        ps.httpx
++        ps.pillow
++        ps.psycopg2
++      ]))
+     ];
+EOF
+----------------------------------------------------------------------
+
+If you aren't familiar with `withPackages` and friends, please have a
+look at the Nixpkgs Reference Manual chapter "Languages and
+frameworks":
+
+______________________________________________________________
+https://nixos.org/manual/nixpkgs/stable/#chap-language-support
+______________________________________________________________
+
+We can again rebuild it, check if it works, and replace our old one:
+
+----------------------------------------------------------------------
+./env nix-build example-env.nix -o new-env
+./env python3 -c 'import httpx'     # fails
+./new-env python3 -c 'import httpx' # works
+mv env old-env
+mv new-env env
+----------------------------------------------------------------------
+
+To summarize, we just created a development environment that contains
+everything we need to work on the project, as well as everything we
+need to work on the environment itself. Neat!
+
+=== Distributing and integrating the env
+
+Now we want to provide our new environment to other people working on
+the project, in a convenient way, just a single compressed tar archive
+with all runtime dependencies of `env`, ready to be unpacked and to be
+used immediately. So we want to create something similar to
+`getanix-env` package, but pre-populated with everything we need.
+
+If you wonder why we only want the *runtime* and not the *build*
+dependencies of `env` for our development environment, please keep in
+mind that the *build* dependencies of `env` were just needed to build
+`env`, not to build your project. In other words, the *runtime*
+dependencies of `env` are the *build* dependencies of your project.
+
+Now, how to we create this package? Well, we could just tar our `env`
+and `.envroot` and call it a day, but that is usually not a good
+idea. Our archive would contain tons of unneeded files. We could
+reduce that using `nix-store --gc`, but that's cumbersome as it
+requires us to provide the correct options and to manage your `gcroot`
+properly. Also, we might not want to throw away all build dependencies
+of `env` just to be able to distribute it. And finally, what if we are
+working with multiple environments using the same store, or are using
+an actual NixOS system?
+
+So let's just use the environment description itself to create the
+distribution tarball. Everything is prepared for that, we just have to
+add the following line to `example-env.nix`:
+
+----------------------------------------------------------------------
+patch example-env.nix <<'EOF'
+@@ -0,2 +0,3 @@
+   };
++  dist.tgz = getanix.mkEnvTgz { inherit env; };
+ }
+EOF
+----------------------------------------------------------------------
+
+Note that it is important to create a sub-level attribute "dist.tgz"
+rather than a top-level attribute like "distTgz". The latter would
+have the side effect that `nix-build` by default creates both, the
+`env` and the tarball, which is certainly not what we want.
+
+Now we can build this via the `-A` option of `nix-build`:
+
+----------------------------------------------------------------------
+./env nix-build example-env.nix -A dist.tgz -o example-env.tgz
+----------------------------------------------------------------------
+
+And that's it! We can now upload that archive onto our development
+server. Moreover, we could extend our `Makefile` (or whatever build
+system we are using) to download, verify and unpack `example-env.tgz`
+automatically, and to run all build commands within that environment.
+
+== Advanced topics
+
+=== Closing the loop
+
+Just it case you were wondering: Of course we can close the loop by
+using our new environment to rebuild the tiny `getanix-env`:
+
+----------------------------------------------------------------------
+./env nix-build https://github.com/m-click/getanix/archive/refs/tags/0.2.tar.gz -o getanix-env-rebuild.tgz
+diff -su getanix-env.tgz getanix-env-rebuild.tgz
+----------------------------------------------------------------------
+
+The second command will confirm that we just reproduced exactly the
+same archive.
+
+=== Separate directory
+
+We might prefer our development system to only write
+into a build directory. As it is fully portable, we can just move it
+to a more convenient place:
+
+----------------------------------------------------------------------
+mkdir -p build
+mv env .envroot build/
+----------------------------------------------------------------------
+
+Now we can exeute the environment from the new location, and write
+updated environments also into that directory:
+
+----------------------------------------------------------------------
+./build/env asciidoctor --version
+./build/env nix-build example-env.nix -o ./build/new-env
+----------------------------------------------------------------------
+
+=== Better compression
+
+If your environment gets larger, switching the tarball's compression from Gzip to Zstandard compression can generate substatial savings:
+
+----------------------------------------------------------------------
+patch example-env.nix <<'EOF'
+@@ -0,3 +0,3 @@
+   };
+-  dist.tgz = getanix.mkEnvTgz { inherit env; };
++  dist.tar.zst = getanix.mkEnvTarZst { inherit env; };
+ }
+EOF
+./env nix-build example-env.nix -A dist.tar.zst -o example-env.tar.zst
+ls -Lhl example-env.tgz example-env.tar.zst
+----------------------------------------------------------------------
+
+Note that you need the `ls` option `-L` to see the actual archive files rather than the symlinks.
+
+== Limitations
+
+While Getanix is portable in the sense of working at any location of
+the filesystem, it is not portable in the sense of running on every
+platform:
+
+* As it uses Bubblewrap, it currently only works on Linux.
+
+* `getanix-env.tgz` has only been pre-built for Linux x86_64 so
+far, but can in principle be built for any Linux architecture that is
+supported by Nix.
