@@ -7,6 +7,7 @@
     sha256 = "1lr1h35prqkd1mkmzriwlpvxcb34kmhc9dnr48gkm8hh089hifmx";
   }) { config = {}; overlays = []; }
 }:
+
 let
   staticBubblewrap = pkgs.pkgsStatic.bubblewrap;
   hosts =
@@ -16,15 +17,39 @@ let
     '';
   cacert = pkgs.cacert;
   bash = pkgs.bash;
+  bintools = pkgs.bintools;
   coreutils = pkgs.coreutils;
   findutils = pkgs.findutils;
   fswatch = pkgs.fswatch;
-  mkBinDir = binPkgs:
+  getClosure = packages:
+    pkgs.lib.lists.remove "" (
+      pkgs.lib.strings.splitString "\n" (
+        builtins.readFile (pkgs.writeClosure packages)
+      )
+    );
+  symlinkJoinSubdirs = packages: subdir:
     pkgs.symlinkJoin {
-      name = "bin";
-      paths = builtins.map (binPkg: "${binPkg}/bin") binPkgs;
+      name = subdir;
+      paths = builtins.filter pkgs.lib.filesystem.pathIsDirectory (
+        builtins.map
+          (package: "${package}/${subdir}")
+          packages
+      );
     };
-  mkEnv = { binDir }:
+  mkEnv = { packages }:
+    let
+      packagesClosure = getClosure packages;
+      binDir = symlinkJoinSubdirs packages "bin";
+      libDir = symlinkJoinSubdirs packagesClosure "lib";
+      ocamlSiteLibDir = pkgs.lib.lists.findSingle
+        pkgs.lib.filesystem.pathIsDirectory
+        "''"
+        "error-multiple-ocaml-versions"
+        (pkgs.lib.mapAttrsToList
+          (name: type: "${libDir}/ocaml/${name}/site-lib")
+          (if pkgs.lib.filesystem.pathIsDirectory "${libDir}/ocaml" then builtins.readDir "${libDir}/ocaml" else {})
+        );
+    in
     pkgs.writeScript "env" ''
       #!/bin/sh
       set -eu
@@ -52,28 +77,30 @@ let
         --bind . "$(pwd)" \
         --remount-ro / \
         --setenv HOME /homedir \
+        --setenv LIBRARY_PATH ${libDir} \
         --setenv NIXPKGS_ALLOW_INSECURE "''${NIXPKGS_ALLOW_INSECURE:-0}" \
         --setenv NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt \
+        --setenv OCAMLPATH ${ocamlSiteLibDir} \
         --setenv PATH /usr/bin \
         -- \
         ${bash}/bin/sh -euc '
           case "$(${coreutils}/bin/basename -- "$2")" in
             nix|nix-*)
-              echo "$0: Recognized Nix command, enabling convenience features." >&2
+              echo "$0: [getanix] Recognized Nix command, enabling convenience features." >&2
               if [ -e /nix/var/nix/db-refs ]; then
-                echo "$0: Initializing Nix database ..." >&2
+                echo "$0: [getanix] Initializing Nix database ..." >&2
                 if [ -e /nix/var/nix/db ]; then
                   echo "Error: Nix database already exists." >&2
                   exit 1
                 fi
                 "$(${coreutils}/bin/dirname -- "$(command -v "$2")")/nix-store" --register-validity </nix/var/nix/db-refs
                 ${coreutils}/bin/rm -f /nix/var/nix/db-refs
-                echo "$0: Nix database successfully initialized." >&2
+                echo "$0: [getanix] Nix database successfully initialized." >&2
               fi
               ${fswatch}/bin/fswatch -l 0.1 -m inotify_monitor -0 --event MovedTo . \
               | ${findutils}/bin/xargs -0 -I {} -- ${bash}/bin/sh -euc '"'"'
                 if [ -s "$2" ] && [ "$(${coreutils}/bin/readlink -- "$2" | ${coreutils}/bin/head -c 1)" = / ]; then
-                  echo "$0: Adjusting symlink: $2" >&2
+                  echo "$0: [getanix] Adjusting symlink: $2" >&2
                   ${coreutils}/bin/ln -rsfT -- "$1$(${coreutils}/bin/readlink -- "$2")" "$2"
                 fi
               '"'"' "$0" "$1" {} &
@@ -87,13 +114,14 @@ let
         "$basedir" \
         "$@"
       '';
-  mkEnvTgz = { env }:
+  mkEnvTarCompressed = { env, compressionCommand, suffix, nativeBuildInputs }:
     let
       closure = pkgs.writeClosure [ env ];
     in
     pkgs.runCommand
-      "env.tgz"
+      "env.${suffix}"
       {
+        inherit nativeBuildInputs;
         exportReferencesGraph = [ "refs" env ];
       }
       ''
@@ -112,11 +140,27 @@ let
         mv tmp/env ./
         mkdir -p .envroot/nix/var/nix
         cat refs >.envroot/nix/var/nix/db-refs
-        tar c --sort=name --owner 0 --group 0 --numeric-owner --mtime=@1 -- .envroot env | gzip -9n >$out
+        tar c --sort=name --owner 0 --group 0 --numeric-owner --mtime=@1 -- .envroot env | ${compressionCommand} >$out
       '';
+  mkEnvTgz = { env }:
+    mkEnvTarCompressed {
+      inherit env;
+      compressionCommand = "gzip -9nv";
+      suffix = "tgz";
+      nativeBuildInputs = [];
+    };
+  mkEnvTarZst = { env }:
+    mkEnvTarCompressed {
+      inherit env;
+      compressionCommand = "zstd --ultra -22v";
+      suffix = "tar.zst";
+      nativeBuildInputs = [
+        pkgs.zstd
+      ];
+    };
   bootstrapEnvTgz = mkEnvTgz {
     env = mkEnv {
-      binDir = mkBinDir [
+      packages = [
         pkgs.nix
       ];
     };
@@ -125,8 +169,8 @@ in
 {
   inherit
     bootstrapEnvTgz
-    mkBinDir
     mkEnv
     mkEnvTgz
+    mkEnvTarZst
   ;
 }
