@@ -127,10 +127,12 @@ store.
 
 After unpacking, this environment is ready to use. We don't need to
 install or setup anything. We can unpack it anywhere, and move it
-around freely. There is one caveat, though: Deletion is a bit
-cumbersome, because the files and directories in a Nix store are
-always read-only. So we need to execute `chmod -R u+w .envroot` before
-we can delete it.
+around freely.
+
+[NOTE]
+There is one caveat, though: Deletion is a bit cumbersome, because the
+files and directories in a Nix store are always read-only. So we need
+to execute `chmod -R u+w .envroot` before we can delete it.
 
 Now let's build the first incarnation of our example environment:
 
