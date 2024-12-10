@@ -343,12 +343,15 @@ archive files rather than the symlinks.
 
 == Limitations
 
-While Getanix is portable in the sense of working at any location of
-the filesystem, it is not portable in the sense of running on every
-platform:
+While Getanix is portable in the sense that we can unpack it anywhere
+into our file system and move it around freely, and that it works on
+any version of any Linux distribution, it is not portable in the sense
+of running on every platform. The current limitations are:
 
-* As it uses Bubblewrap, it currently only works on Linux.
+* As it uses Bubblewrap, it currently only works on Linux, but can in
+  principle run on non-Linux systems using other sandboxing
+  mechanisms, as long as remapping the `/nix` directory is possible.
 
-* `getanix-env.tgz` has only been pre-built for Linux x86_64 so
-far, but can in principle be built for any Linux architecture that is
-supported by Nix.
+* `getanix-env.tgz` has only been pre-built for Linux x86_64 so far,
+  but can in principle be built for any Linux architecture that is
+  supported by Nix.
