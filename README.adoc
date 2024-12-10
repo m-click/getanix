@@ -63,8 +63,8 @@ cd my-project
 
 As a first step, we will create a simple development environment with
 Asciidoctor, Bash, some typical Unix tools, Nix utilities and Python.
-Note how we are pinning the current Nixpkgs version as well as the
-Getanix version with the respective cryptographic hash:
+Please pay attention to how we are pinning the current Nixpkgs version
+as well as the Getanix version with the respective cryptographic hash:
 
 ----------------------------------------------------------------------
 cat >example-env.nix <<'EOF'
@@ -95,21 +95,24 @@ rec {
 EOF
 ----------------------------------------------------------------------
 
+[NOTE]
+======================================================================
 If you are unsure about the exact Nix package names of your project
 dependencies, just have a look at the NixOS Search:
 
 _________________________________
 https://search.nixos.org/packages
 _________________________________
+======================================================================
 
 Since our description is a `.nix` file, we need the Nix tool to build
-our environment. Nix will be part of our environment, but that is not
-yet built. So we have a classic chicken-and-egg problem and need to
-bootstrap ourselves. We can use any Nix tool or NixOS system for that
-purpose, but for the sake of demonstration, let's assume that we can't
-or don't want to install Nix. The most convenient option is then the
-portable `getanix-env` which we can download, verify and unpack as
-follows:
+our environment. But although Nix will be part of our environment,
+that one has not yet been built. So we have a classic chicken-and-egg
+problem and need to bootstrap ourselves. We can use any Nix tool or
+NixOS system for that purpose, but for the sake of demonstration,
+let's assume that we can't or don't want to install Nix. The most
+convenient option is then the portable `getanix-env` which we can
+download, verify and unpack as follows:
 
 ----------------------------------------------------------------------
 curl -#LOf https://github.com/m-click/getanix/releases/download/0.2/getanix-env.tgz \
@@ -157,6 +160,7 @@ local shell:
 ./example-env bash
 ----------------------------------------------------------------------
 
+[NOTE]
 Compared to `nix-shell`, this one always starts immediately, but is
 nevertheless reasonably sandboxed. In particular, only files in the
 current directory and subdirectories are reachable, as well as the
@@ -199,6 +203,8 @@ patch example-env.nix <<'EOF'
 EOF
 ----------------------------------------------------------------------
 
+[NOTE]
+======================================================================
 If you aren't familiar with `withPackages` and friends, please have a
 look at the Nixpkgs Reference Manual chapter "Languages and
 frameworks":
@@ -206,6 +212,7 @@ frameworks":
 ______________________________________________________________
 https://nixos.org/manual/nixpkgs/stable/#chap-language-support
 ______________________________________________________________
+======================================================================
 
 We can again rebuild it, check if it works, and replace our old one:
 
@@ -217,25 +224,27 @@ mv env old-env
 mv new-env env
 ----------------------------------------------------------------------
 
-To summarize, we just created a development environment that contains
+=== Distributing and integrating the env
+
+So far we created and refined a development environment that contains
 everything we need to work on the project, as well as everything we
 need to work on the environment itself. Neat!
 
-=== Distributing and integrating the env
+Now it's time to provide our new environment to other people working
+on the project. We'd like to do that in a convenient way for them,
+just a single compressed tar archive with all runtime dependencies of
+`env`, ready to be unpacked and to be used immediately. In other
+words, our goal is to create something similar to `getanix-env`
+package, but pre-populated with everything we need.
 
-Now we want to provide our new environment to other people working on
-the project, in a convenient way, just a single compressed tar archive
-with all runtime dependencies of `env`, ready to be unpacked and to be
-used immediately. So we want to create something similar to
-`getanix-env` package, but pre-populated with everything we need.
-
+[NOTE]
 If you wonder why we only want the *runtime* and not the *build*
 dependencies of `env` for our development environment, please keep in
 mind that the *build* dependencies of `env` were just needed to build
 `env`, not to build your project. In other words, the *runtime*
 dependencies of `env` are the *build* dependencies of your project.
 
-Now, how to we create this package? Well, we could just tar our `env`
+Now, how do we create this package? Well, we could just tar our `env`
 and `.envroot` and call it a day, but that is usually not a good
 idea. Our archive would contain tons of unneeded files. We could
 reduce that using `nix-store --gc`, but that's cumbersome as it
@@ -243,10 +252,10 @@ requires us to provide the correct options and to manage your `gcroot`
 properly. Also, we might not want to throw away all build dependencies
 of `env` just to be able to distribute it. And finally, what if we are
 working with multiple environments using the same store, or are using
-an actual NixOS system?
+an actual Nix installation, perhaps even a NixOS system?
 
 So let's just use the environment description itself to create the
-distribution tarball. Everything is prepared for that, we just have to
+distribution tarball! Everything is prepared for that, we just have to
 add the following line to `example-env.nix`:
 
 ----------------------------------------------------------------------
@@ -258,10 +267,11 @@ patch example-env.nix <<'EOF'
 EOF
 ----------------------------------------------------------------------
 
-Note that it is important to create a sub-level attribute "dist.tgz"
-rather than a top-level attribute like "distTgz". The latter would
-have the side effect that `nix-build` by default creates both, the
-`env` and the tarball, which is certainly not what we want.
+[NOTE]
+It is important to create a sub-level attribute `dist.tgz` rather than
+a top-level attribute like `distTgz`. The latter would have the side
+effect that `nix-build` by default creates both, the `env` and the
+tarball, which is certainly not what we want.
 
 Now we can build this via the `-A` option of `nix-build`:
 
@@ -286,8 +296,8 @@ using our new environment to rebuild the tiny `getanix-env`:
 diff -su getanix-env.tgz getanix-env-rebuild.tgz
 ----------------------------------------------------------------------
 
-The second command will confirm that we just reproduced exactly the
-same archive.
+The second command will confirm that we just reproduced, byte for
+byte, the exact same archive file.
 
 === Separate directory
 
@@ -310,7 +320,8 @@ updated environments also into that directory:
 
 === Better compression
 
-If your environment gets larger, switching the tarball's compression from Gzip to Zstandard compression can generate substatial savings:
+If your environment gets larger, switching the tarball's compression
+from Gzip to Zstandard compression can generate substatial savings:
 
 ----------------------------------------------------------------------
 patch example-env.nix <<'EOF'
@@ -324,7 +335,9 @@ EOF
 ls -Lhl example-env.tgz example-env.tar.zst
 ----------------------------------------------------------------------
 
-Note that you need the `ls` option `-L` to see the actual archive files rather than the symlinks.
+[NOTE]
+We need the `ls` option `-L` to see the actual archive files rather
+than the symlinks.
 
 == Limitations
 
