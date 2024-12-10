@@ -291,7 +291,7 @@ automatically, and to run all build commands within that environment.
 === Closing the loop
 
 Just it case you were wondering: Of course we can close the loop by
-using our new environment to rebuild the tiny `getanix-env`:
+using our new environment to rebuild the original `getanix-env`:
 
 ----------------------------------------------------------------------
 ./env nix-build https://github.com/m-click/getanix/archive/refs/tags/0.2.tar.gz -o getanix-env-rebuild.tgz
