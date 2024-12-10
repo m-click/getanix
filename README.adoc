@@ -336,8 +336,8 @@ ls -Lhl example-env.tgz example-env.tar.zst
 ----------------------------------------------------------------------
 
 [NOTE]
-We need the `ls` option `-L` to see the actual archive files rather
-than the symlinks.
+We need the `ls` option `-L` to see information about the actual
+archive files rather than the symlinks.
 
 == Limitations
 
