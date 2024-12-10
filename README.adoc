@@ -145,8 +145,8 @@ Now let's build the first incarnation of our example environment:
 As usual in Nix, the new environment resides in the same Nix store (in
 `.envroot`) and reuses as much as possible from the first one. A new
 symlink `example-env` is created and points to the new environment. It
-can be used the same way as the first environment, that is, just
-prefix your commands with the environment:
+can be used the same way as the first environment, that is, we just
+prefix our commands with the environment:
 
 ----------------------------------------------------------------------
 ./example-env asciidoctor --version
