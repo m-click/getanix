@@ -270,8 +270,8 @@ EOF
 [NOTE]
 It is important to create a sub-level attribute `dist.tgz` rather than
 a top-level attribute like `distTgz`. The latter would have the side
-effect that `nix-build` by default creates both, the `env` and the
-tarball, which is certainly not what we want.
+effect that `nix-build` by default always creates both, the `env` and
+the tarball, which is certainly not what we want.
 
 Now we can build this via the `-A` option of `nix-build`:
 
