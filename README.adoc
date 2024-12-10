@@ -62,9 +62,9 @@ cd my-project
 ----------------------------------------------------------------------
 
 As a first step, we will create a simple development environment with
-Asciidoctor, Bash, some typical Unix tools, Nix and Python. Note how
-we are pinning the current Nixpkgs version as well as the Getanix
-version with the respective cryptographic hash:
+Asciidoctor, Bash, some typical Unix tools, Nix utilities and Python.
+Note how we are pinning the current Nixpkgs version as well as the
+Getanix version with the respective cryptographic hash:
 
 ----------------------------------------------------------------------
 cat >example-env.nix <<'EOF'
@@ -86,6 +86,8 @@ rec {
       pkgs.coreutils
       pkgs.findutils
       pkgs.nix
+      pkgs.nix-tree
+      pkgs.nixfmt-rfc-style
       pkgs.python3
     ];
   };
@@ -187,15 +189,13 @@ Let's now add some Python packages to our example environment:
 
 ----------------------------------------------------------------------
 patch example-env.nix <<'EOF'
-@@ -0,3 +0,7 @@
-       pkgs.nix
+@@ -0,1 +0,5 @@
 -      pkgs.python3
 +      (pkgs.python3.withPackages (ps: [
 +        ps.httpx
 +        ps.pillow
 +        ps.psycopg2
 +      ]))
-     ];
 EOF
 ----------------------------------------------------------------------
 
