@@ -82,6 +82,7 @@ let
         --setenv NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt \
         --setenv OCAMLPATH ${ocamlSiteLibDir} \
         --setenv PATH /usr/bin \
+        --setenv TERM "''${TERM:-}" \
         -- \
         ${bash}/bin/sh -euc '
           case "$(${coreutils}/bin/basename -- "$2")" in
