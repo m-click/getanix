@@ -79,7 +79,7 @@ let
   }) { inherit pkgs; };
 in
 rec {
-  env = getanix.mkEnv {
+  env = getanix.mkPortableEnv {
     packages = [
       pkgs.asciidoctor
       pkgs.bashInteractive
@@ -264,7 +264,7 @@ add the following line to `example-env.nix`:
 patch example-env.nix <<'EOF'
 @@ -0,2 +0,3 @@
    };
-+  dist.tgz = getanix.mkEnvTgz { inherit env; };
++  dist.tgz = getanix.mkPortableEnvTgz { inherit env; };
  }
 EOF
 ----------------------------------------------------------------------
@@ -329,8 +329,8 @@ from Gzip to Zstandard compression can generate substatial savings:
 patch example-env.nix <<'EOF'
 @@ -0,3 +0,3 @@
    };
--  dist.tgz = getanix.mkEnvTgz { inherit env; };
-+  dist.tar.zst = getanix.mkEnvTarZst { inherit env; };
+-  dist.tgz = getanix.mkPortableEnvTgz { inherit env; };
++  dist.tar.zst = getanix.mkPortableEnvTarZst { inherit env; };
  }
 EOF
 ./env nix-build example-env.nix -A dist.tar.zst -o example-env.tar.zst

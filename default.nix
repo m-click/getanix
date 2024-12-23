@@ -37,7 +37,7 @@ let
           packages
       );
     };
-  mkEnv = { packages }:
+  mkPortableEnv = { packages }:
     let
       packagesClosure = getClosure packages;
       binDir = symlinkJoinSubdirs packages "bin";
@@ -157,7 +157,7 @@ let
         "$basedir" \
         "$@"
       '';
-  mkEnvTarCompressed = { env, compressionCommand, suffix, nativeBuildInputs }:
+  mkPortableEnvTarCompressed = { env, compressionCommand, suffix, nativeBuildInputs }:
     let
       closure = pkgs.writeClosure [ env ];
     in
@@ -185,15 +185,15 @@ let
         cat refs >.envroot/nix/var/nix/db-refs
         tar c --sort=name --owner 0 --group 0 --numeric-owner --mtime=@1 -- .envroot env | ${compressionCommand} >$out
       '';
-  mkEnvTgz = { env }:
-    mkEnvTarCompressed {
+  mkPortableEnvTgz = { env }:
+    mkPortableEnvTarCompressed {
       inherit env;
       compressionCommand = "gzip -9nv";
       suffix = "tgz";
       nativeBuildInputs = [];
     };
-  mkEnvTarZst = { env }:
-    mkEnvTarCompressed {
+  mkPortableEnvTarZst = { env }:
+    mkPortableEnvTarCompressed {
       inherit env;
       compressionCommand = "zstd --ultra -22v";
       suffix = "tar.zst";
@@ -201,8 +201,8 @@ let
         pkgs.zstd
       ];
     };
-  bootstrapEnvTgz = mkEnvTgz {
-    env = mkEnv {
+  bootstrapEnvTgz = mkPortableEnvTgz {
+    env = mkPortableEnv {
       packages = [
         pkgs.nix
       ];
@@ -212,8 +212,8 @@ in
 {
   inherit
     bootstrapEnvTgz
-    mkEnv
-    mkEnvTgz
-    mkEnvTarZst
+    mkPortableEnv
+    mkPortableEnvTgz
+    mkPortableEnvTarZst
   ;
 }
