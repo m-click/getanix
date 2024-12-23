@@ -55,9 +55,9 @@ let
           ''
       );
       libDir = symlinkJoinSubdirs packagesClosure "lib";
-      ocamlSiteLibDir = pkgs.lib.lists.findSingle
+      ocamlSiteLibDirOrEmpty = pkgs.lib.lists.findSingle
         pkgs.lib.filesystem.pathIsDirectory
-        "''"
+        ""
         "error-multiple-ocaml-versions"
         (pkgs.lib.mapAttrsToList
           (name: type: "${libDir}/ocaml/${name}/site-lib")
@@ -96,7 +96,7 @@ let
         --setenv LIBRARY_PATH ${libDir} \
         --setenv NIXPKGS_ALLOW_INSECURE "''${NIXPKGS_ALLOW_INSECURE:-0}" \
         --setenv NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt \
-        --setenv OCAMLPATH ${ocamlSiteLibDir} \
+        --setenv OCAMLPATH '${ocamlSiteLibDirOrEmpty}' \
         --setenv PATH /usr/bin \
         --setenv TERM "''${TERM:-}" \
         -- \
