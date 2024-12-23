@@ -20,6 +20,7 @@ let
   bintools = pkgs.bintools;
   coreutils = pkgs.coreutils;
   findutils = pkgs.findutils;
+  fontconfigOut = pkgs.fontconfig.out;
   fswatch = pkgs.fswatch;
   getClosure = packages:
     pkgs.lib.lists.remove "" (
@@ -40,6 +41,19 @@ let
     let
       packagesClosure = getClosure packages;
       binDir = symlinkJoinSubdirs packages "bin";
+      fontsDir = symlinkJoinSubdirs packagesClosure "share/fonts";
+      fontsConf = pkgs.writeText "fonts.conf" (
+        if builtins.readDir "${fontsDir}" == {} then
+          ""
+        else
+          ''
+            <fontconfig>
+              <description>Environment configuration file</description>
+              <dir>${fontsDir}</dir>
+              <include>${fontconfigOut}/etc/fonts/fonts.conf</include>
+            </fontconfig>
+          ''
+      );
       libDir = symlinkJoinSubdirs packagesClosure "lib";
       ocamlSiteLibDir = pkgs.lib.lists.findSingle
         pkgs.lib.filesystem.pathIsDirectory
@@ -77,6 +91,7 @@ let
         --bind . "$(pwd)" \
         --remount-ro / \
         --setenv DISPLAY "''${DISPLAY:-}" \
+        --setenv FONTCONFIG_FILE ${fontsConf} \
         --setenv HOME /homedir \
         --setenv LIBRARY_PATH ${libDir} \
         --setenv NIXPKGS_ALLOW_INSECURE "''${NIXPKGS_ALLOW_INSECURE:-0}" \
