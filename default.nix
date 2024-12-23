@@ -76,6 +76,7 @@ let
         --ro-bind-try /etc/resolv.conf /etc/resolv.conf \
         --bind . "$(pwd)" \
         --remount-ro / \
+        --setenv DISPLAY "''${DISPLAY:-}" \
         --setenv HOME /homedir \
         --setenv LIBRARY_PATH ${libDir} \
         --setenv NIXPKGS_ALLOW_INSECURE "''${NIXPKGS_ALLOW_INSECURE:-0}" \
