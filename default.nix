@@ -43,7 +43,7 @@ let
       binDir = symlinkJoinSubdirs packages "bin";
       fontsDir = symlinkJoinSubdirs packagesClosure "share/fonts";
       fontsConf = pkgs.writeText "fonts.conf" (
-        if builtins.readDir "${fontsDir}" == {} then
+        if builtins.readDir fontsDir == {} then
           ""
         else
           ''
