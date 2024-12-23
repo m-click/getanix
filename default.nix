@@ -41,6 +41,31 @@ let
     let
       packagesClosure = getClosure packages;
       binDir = symlinkJoinSubdirs packages "bin";
+      emacsDir = symlinkJoinSubdirs packagesClosure "share/emacs";
+      emacsVersionLispDir = pkgs.lib.lists.findSingle
+        pkgs.lib.filesystem.pathIsDirectory
+        ""
+        "error-multiple-emacs-versions"
+        (pkgs.lib.mapAttrsToList
+          (name: type: "${emacsDir}/${name}/lisp")
+          (builtins.readDir emacsDir)
+        );
+      emacsSiteLispDir =
+        if pkgs.lib.filesystem.pathIsDirectory "${emacsDir}/site-lisp" then
+          "${emacsDir}/site-lisp"
+        else
+          "";
+      emacsLoadPathOrEmpty =
+        builtins.concatStringsSep
+          ":"
+          (
+            builtins.filter
+              (pathEntry: pathEntry != "")
+              [
+                emacsVersionLispDir
+                emacsSiteLispDir
+              ]
+          );
       fontsDir = symlinkJoinSubdirs packagesClosure "share/fonts";
       fontsConf = pkgs.writeText "fonts.conf" (
         if builtins.readDir fontsDir == {} then
@@ -91,6 +116,7 @@ let
         --bind . "$(pwd)" \
         --remount-ro / \
         --setenv DISPLAY "''${DISPLAY:-}" \
+        --setenv EMACSLOADPATH '${emacsLoadPathOrEmpty}' \
         --setenv FONTCONFIG_FILE ${fontsConf} \
         --setenv HOME /homedir \
         --setenv LIBRARY_PATH ${libDir} \
