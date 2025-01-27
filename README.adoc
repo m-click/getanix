@@ -355,3 +355,11 @@ of running on every platform. The current limitations are:
 * `getanix-env.tgz` has only been pre-built for Linux x86_64 so far,
   but can in principle be built for any Linux architecture that is
   supported by Nix.
+
+== See also
+
+* https://github.com/NixOS/nix/issues/9176
+* https://github.com/NixOS/nixpkgs/issues/262007
+* https://github.com/NixOS/nix/issues/9193
+* https://discourse.nixos.org/t/where-can-i-get-a-statically-built-nix/34253/11
+* https://github.com/nixie-dev/nixie
