@@ -31,7 +31,7 @@ let
   symlinkJoinSubdirs = packages: subdir:
     pkgs.symlinkJoin {
       name = subdir;
-      paths = builtins.filter pkgs.lib.filesystem.pathIsDirectory (
+      paths = builtins.filter builtins.pathExists (
         builtins.map
           (package: "${package}/${subdir}")
           packages
