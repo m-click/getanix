@@ -4,6 +4,8 @@
 { pkgs }:
 let
   getanix = {
+    strings = import src/strings.nix { inherit pkgs getanix; };
+
     legacy = import src/legacy.nix { inherit pkgs getanix; };
   };
 in
