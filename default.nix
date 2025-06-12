@@ -4,6 +4,7 @@
 { pkgs }:
 let
   getanix = {
+    closure = import src/closure.nix { inherit pkgs getanix; };
     strings = import src/strings.nix { inherit pkgs getanix; };
 
     legacy = import src/legacy.nix { inherit pkgs getanix; };
