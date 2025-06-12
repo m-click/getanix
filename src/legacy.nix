@@ -2,20 +2,25 @@
 # SPDX-License-Identifier: Apache-2.0
 
 {
-  pkgs ? import (builtins.fetchTarball {
-    url = "https://github.com/NixOS/nixpkgs/archive/refs/tags/24.05.tar.gz";
-    sha256 = "1lr1h35prqkd1mkmzriwlpvxcb34kmhc9dnr48gkm8hh089hifmx";
-  }) { config = {}; overlays = []; },
-  getanix
+  pkgs ?
+    import
+      (builtins.fetchTarball {
+        url = "https://github.com/NixOS/nixpkgs/archive/refs/tags/24.05.tar.gz";
+        sha256 = "1lr1h35prqkd1mkmzriwlpvxcb34kmhc9dnr48gkm8hh089hifmx";
+      })
+      {
+        config = { };
+        overlays = [ ];
+      },
+  getanix,
 }:
 
 let
   staticBubblewrap = pkgs.pkgsStatic.bubblewrap;
-  hosts =
-    pkgs.writeText "hosts" ''
-      127.0.0.1 localhost
-      ::1       localhost
-    '';
+  hosts = pkgs.writeText "hosts" ''
+    127.0.0.1 localhost
+    ::1       localhost
+  '';
   cacert = pkgs.cacert;
   bash = pkgs.bash;
   bintools = pkgs.bintools;
@@ -23,53 +28,39 @@ let
   findutils = pkgs.findutils;
   fontconfigOut = pkgs.fontconfig.out;
   fswatch = pkgs.fswatch;
-  getClosure = packages:
+  getClosure =
+    packages:
     pkgs.lib.lists.remove "" (
-      pkgs.lib.strings.splitString "\n" (
-        builtins.readFile (pkgs.writeClosure packages)
-      )
+      pkgs.lib.strings.splitString "\n" (builtins.readFile (pkgs.writeClosure packages))
     );
-  symlinkJoinSubdirs = packages: subdir:
+  symlinkJoinSubdirs =
+    packages: subdir:
     pkgs.symlinkJoin {
       name = subdir;
       paths = builtins.filter builtins.pathExists (
-        builtins.map
-          (package: "${package}/${subdir}")
-          packages
+        builtins.map (package: "${package}/${subdir}") packages
       );
     };
-  mkPortableEnv = { packages }:
+  mkPortableEnv =
+    { packages }:
     let
       packagesClosure = getClosure packages;
       binDir = symlinkJoinSubdirs packages "bin";
       emacsDir = symlinkJoinSubdirs packagesClosure "share/emacs";
-      emacsVersionLispDir = pkgs.lib.lists.findSingle
-        pkgs.lib.filesystem.pathIsDirectory
-        ""
-        "error-multiple-emacs-versions"
-        (pkgs.lib.mapAttrsToList
-          (name: type: "${emacsDir}/${name}/lisp")
-          (builtins.readDir emacsDir)
-        );
+      emacsVersionLispDir =
+        pkgs.lib.lists.findSingle pkgs.lib.filesystem.pathIsDirectory "" "error-multiple-emacs-versions"
+          (pkgs.lib.mapAttrsToList (name: type: "${emacsDir}/${name}/lisp") (builtins.readDir emacsDir));
       emacsSiteLispDir =
-        if pkgs.lib.filesystem.pathIsDirectory "${emacsDir}/site-lisp" then
-          "${emacsDir}/site-lisp"
-        else
-          "";
-      emacsLoadPathOrEmpty =
-        builtins.concatStringsSep
-          ":"
-          (
-            builtins.filter
-              (pathEntry: pathEntry != "")
-              [
-                emacsVersionLispDir
-                emacsSiteLispDir
-              ]
-          );
+        if pkgs.lib.filesystem.pathIsDirectory "${emacsDir}/site-lisp" then "${emacsDir}/site-lisp" else "";
+      emacsLoadPathOrEmpty = builtins.concatStringsSep ":" (
+        builtins.filter (pathEntry: pathEntry != "") [
+          emacsVersionLispDir
+          emacsSiteLispDir
+        ]
+      );
       fontsDir = symlinkJoinSubdirs packagesClosure "share/fonts";
       fontsConf = pkgs.writeText "fonts.conf" (
-        if builtins.readDir fontsDir == {} then
+        if builtins.readDir fontsDir == { } then
           ""
         else
           ''
@@ -81,14 +72,16 @@ let
           ''
       );
       libDir = symlinkJoinSubdirs packagesClosure "lib";
-      ocamlSiteLibDirOrEmpty = pkgs.lib.lists.findSingle
-        pkgs.lib.filesystem.pathIsDirectory
-        ""
-        "error-multiple-ocaml-versions"
-        (pkgs.lib.mapAttrsToList
-          (name: type: "${libDir}/ocaml/${name}/site-lib")
-          (if pkgs.lib.filesystem.pathIsDirectory "${libDir}/ocaml" then builtins.readDir "${libDir}/ocaml" else {})
-        );
+      ocamlSiteLibDirOrEmpty =
+        pkgs.lib.lists.findSingle pkgs.lib.filesystem.pathIsDirectory "" "error-multiple-ocaml-versions"
+          (
+            pkgs.lib.mapAttrsToList (name: type: "${libDir}/ocaml/${name}/site-lib") (
+              if pkgs.lib.filesystem.pathIsDirectory "${libDir}/ocaml" then
+                builtins.readDir "${libDir}/ocaml"
+              else
+                { }
+            )
+          );
     in
     pkgs.writeScript "env" ''
       #!/bin/sh
@@ -157,16 +150,24 @@ let
         "$0" \
         "$basedir" \
         "$@"
-      '';
-  mkPortableEnvTarCompressed = { env, compressionCommand, suffix, nativeBuildInputs }:
+    '';
+  mkPortableEnvTarCompressed =
+    {
+      env,
+      compressionCommand,
+      suffix,
+      nativeBuildInputs,
+    }:
     let
       closure = pkgs.writeClosure [ env ];
     in
-    pkgs.runCommand
-      "env.${suffix}"
+    pkgs.runCommand "env.${suffix}"
       {
         inherit nativeBuildInputs;
-        exportReferencesGraph = [ "refs" env ];
+        exportReferencesGraph = [
+          "refs"
+          env
+        ];
       }
       ''
         mkdir -p tmp/.envroot/nix/store
@@ -186,29 +187,23 @@ let
         cat refs >.envroot/nix/var/nix/db-refs
         tar c --sort=name --owner 0 --group 0 --numeric-owner --mtime=@1 -- .envroot env | ${compressionCommand} >$out
       '';
-  mkPortableEnvTgz = { env }:
+  mkPortableEnvTgz =
+    { env }:
     mkPortableEnvTarCompressed {
       inherit env;
       compressionCommand = "gzip -9nv";
       suffix = "tgz";
-      nativeBuildInputs = [];
+      nativeBuildInputs = [ ];
     };
-  mkPortableEnvTarZst = { env }:
+  mkPortableEnvTarZst =
+    { env }:
     mkPortableEnvTarCompressed {
       inherit env;
       compressionCommand = "zstd --ultra -22v";
       suffix = "tar.zst";
-      nativeBuildInputs = [
-        pkgs.zstd
-      ];
+      nativeBuildInputs = [ pkgs.zstd ];
     };
-  bootstrapEnvTgz = mkPortableEnvTgz {
-    env = mkPortableEnv {
-      packages = [
-        pkgs.nix
-      ];
-    };
-  };
+  bootstrapEnvTgz = mkPortableEnvTgz { env = mkPortableEnv { packages = [ pkgs.nix ]; }; };
 in
 {
   inherit
@@ -216,5 +211,5 @@ in
     mkPortableEnv
     mkPortableEnvTgz
     mkPortableEnvTarZst
-  ;
+    ;
 }
