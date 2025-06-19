@@ -4,6 +4,7 @@
 { pkgs }:
 let
   getanix = {
+    build = import src/build.nix { inherit pkgs getanix; };
     closure = import src/closure.nix { inherit pkgs getanix; };
     strings = import src/strings.nix { inherit pkgs getanix; };
 
