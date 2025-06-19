@@ -92,7 +92,9 @@ let
       fi
       basedir=$(realpath -- "$(dirname -- "$(realpath -- "$0")")/../..")
       mkdir -p -- "$basedir/homedir"
+      mkdir -p -- "$basedir/run"
       mkdir -p -- "$basedir/tmp"
+      mkdir -p -- "$basedir/var"
       exec "$basedir${staticBubblewrap}/bin/bwrap" \
         --unshare-all \
         --share-net \
@@ -102,7 +104,9 @@ let
         --proc /proc \
         --bind "$basedir/nix" /nix \
         --bind "$basedir/homedir" /homedir \
+        --bind "$basedir/run" /run \
         --bind "$basedir/tmp" /tmp \
+        --bind "$basedir/var" /var \
         --symlink usr/bin /bin \
         --symlink ${binDir} /usr/bin \
         --symlink ${hosts} /etc/hosts \
