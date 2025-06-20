@@ -19,6 +19,15 @@ let
     ) list;
 in
 
+let
+  checkRegex =
+    name: regex: s:
+    if builtins.match regex s == null then
+      abort "Invalid ${name}: ${lib.strings.escapeNixString s} (does not match regex ${lib.strings.escapeNixString regex})"
+    else
+      s;
+in
+
 {
-  inherit ensureSuffix mapLines;
+  inherit checkRegex ensureSuffix mapLines;
 }
