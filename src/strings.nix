@@ -8,10 +8,6 @@ let
 in
 
 let
-  ensureSuffix = suffix: s: if s == "" || lib.hasSuffix s "\n" then s else s + "\n";
-in
-
-let
   mapLines =
     indent: list: f:
     lib.concatMapStringsSep "\n" (
@@ -29,5 +25,5 @@ let
 in
 
 {
-  inherit checkRegex ensureSuffix mapLines;
+  inherit checkRegex mapLines;
 }
