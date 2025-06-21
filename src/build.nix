@@ -12,6 +12,10 @@ let
 in
 
 let
+  out = "/replace-with-out-${builtins.hashString "sha256" "${fragmentType}.out"}";
+in
+
+let
   isValidPathComponent =
     name:
     (builtins.match ''[ -~]+'' name != null)
@@ -25,52 +29,42 @@ let
 in
 
 let
-  mkFragment = buildCommand: dataArgs: {
-    type = fragmentType;
-    normalizedBuildCommand = getanix.strings.ensureSuffix "\n" buildCommand;
-    inherit dataArgs;
-  };
-in
-
-let
-  emptyFragment = mkFragment "" { };
+  mkFragment =
+    { mkBuildCommand, mkFileArgs }:
+    {
+      type = fragmentType;
+      mkBuildCommandList = [ mkBuildCommand ];
+      mkFileArgsList = [ mkFileArgs ];
+    };
 in
 
 let
   concatFragments =
     fragments:
     assert builtins.all isFragment fragments;
-    let
-      buildCommand = lib.concatMapStrings (fragment: fragment.normalizedBuildCommand) fragments;
-      dataArgs = lib.mergeAttrsList (builtins.map (fragment: fragment.dataArgs) fragments);
-    in
-    mkFragment buildCommand dataArgs;
+    {
+      type = fragmentType;
+      mkBuildCommandList = lib.concatMap (fragment: fragment.mkBuildCommandList) fragments;
+      mkFileArgsList = lib.concatMap (fragment: fragment.mkFileArgsList) fragments;
+    };
 in
 
 let
-  forEachAttrToFragment = attrs: f: concatFragments (lib.mapAttrsToList f attrs);
-in
-
-let
-  mkDataPath =
-    data:
-    let
-      hash = builtins.hashString "sha256" data;
-    in
-    mkFragment ''dataPath=$_data_${hash}Path'' { "_data_${hash}" = data; };
-in
-
-let
-  out = "@out-${builtins.hashString "sha256" "${fragmentType}.out"}@";
+  mkSimpleFragment =
+    buildCommand:
+    mkFragment {
+      mkBuildCommand = i: buildCommand;
+      mkFileArgs = i: { };
+    };
 in
 
 let
   mkFile =
     data:
-    concatFragments [
-      (mkDataPath data)
-      (mkFragment ''sed "s:${out}:$out:g" <"$dataPath" >"$outSubPath"'' { })
-    ];
+    mkFragment {
+      mkBuildCommand = i: ''sed "s:${out}:$out:g" <"$file${builtins.toString i}Path" >"$outSubPath"'';
+      mkFileArgs = i: { "file${builtins.toString i}" = data; };
+    };
 in
 
 let
@@ -78,7 +72,7 @@ let
     data:
     concatFragments [
       (mkFile data)
-      (mkFragment ''chmod +x -- "$outSubPath"'' { })
+      (mkSimpleFragment ''chmod +x -- "$outSubPath"'')
     ];
 in
 
@@ -90,15 +84,17 @@ let
   mkDir =
     entries:
     concatFragments [
-      (mkFragment ''mkdir -p -- "$outSubPath"'' { })
-      (forEachAttrToFragment entries (
-        pathComponent: entry:
-        assert isValidPathComponent pathComponent;
-        concatFragments [
-          (mkFragment ''(outSubPath=$outSubPath/${lib.escapeShellArg pathComponent}'' { })
-          entry
-          (mkFragment '')'' { })
-        ]
+      (mkSimpleFragment ''mkdir -- "$outSubPath"'')
+      (concatFragments (
+        lib.mapAttrsToList (
+          pathComponent: entry:
+          assert isValidPathComponent pathComponent;
+          concatFragments [
+            (mkSimpleFragment ''(outSubPath=$outSubPath/${lib.escapeShellArg pathComponent}'')
+            entry
+            (mkSimpleFragment '')'')
+          ]
+        ) entries
       ))
     ];
 in
@@ -108,24 +104,24 @@ let
     { name, out }:
     let
       fragment = concatFragments [
-        (mkFragment ''outSubPath=$out'' { })
+        (mkSimpleFragment ''outSubPath=$out'')
         out
       ];
-      derivationArgs = fragment.dataArgs // {
-        passAsFile = builtins.attrNames fragment.dataArgs;
+      fileArgs = builtins.foldl' lib.attrsets.unionOfDisjoint { } (
+        lib.lists.imap1 (i: mkFileArgs: mkFileArgs i) fragment.mkFileArgsList
+      );
+      derivationArgs = lib.attrsets.unionOfDisjoint fileArgs {
+        passAsFile = builtins.attrNames fileArgs;
       };
+      buildCommand = builtins.concatStringsSep "\n" (
+        lib.lists.imap1 (i: mkBuildCommand: mkBuildCommand i) fragment.mkBuildCommandList
+      );
     in
-    pkgs.runCommand name derivationArgs fragment.normalizedBuildCommand;
+    pkgs.runCommand name derivationArgs buildCommand;
 in
 
 {
   inherit
-    isFragment
-    mkFragment
-    emptyFragment
-    concatFragments
-    forEachAttrToFragment
-    mkDataPath
     out
     mkFile
     mkScript
