@@ -99,6 +99,7 @@ let
         --unshare-all \
         --share-net \
         --clearenv \
+        --forward-signals \
         --die-with-parent \
         --dev /dev \
         --proc /proc \
