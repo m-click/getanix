@@ -50,7 +50,7 @@ let
 in
 
 let
-  mkRunCommand =
+  mkCommandFragment =
     buildCommand:
     mkFragment {
       mkBuildCommand = i: buildCommand;
@@ -72,27 +72,27 @@ let
     data:
     concatFragments [
       (mkFile data)
-      (mkRunCommand ''chmod +x -- "$outSubPath"'')
+      (mkCommandFragment ''chmod +x -- "$outSubPath"'')
     ];
 in
 
 let
-  mkSymlink = sourcePath: mkFragment ''ln -sT -- ${lib.escapeShellArg sourcePath} "$outSubPath"'' { };
+  mkSymlink = sourcePath: mkCommandFragment ''ln -sT -- ${lib.escapeShellArg sourcePath} "$outSubPath"'';
 in
 
 let
   mkDir =
     entries:
     concatFragments [
-      (mkRunCommand ''mkdir -- "$outSubPath"'')
+      (mkCommandFragment ''mkdir -- "$outSubPath"'')
       (concatFragments (
         lib.mapAttrsToList (
           pathComponent: entry:
           assert isValidPathComponent pathComponent;
           concatFragments [
-            (mkRunCommand ''(outSubPath=$outSubPath/${lib.escapeShellArg pathComponent}'')
+            (mkCommandFragment ''(outSubPath=$outSubPath/${lib.escapeShellArg pathComponent}'')
             entry
-            (mkRunCommand '')'')
+            (mkCommandFragment '')'')
           ]
         ) entries
       ))
@@ -104,7 +104,7 @@ let
     { name, out }:
     let
       fragment = concatFragments [
-        (mkRunCommand ''outSubPath=$out'')
+        (mkCommandFragment ''outSubPath=$out'')
         out
       ];
       fileArgs = builtins.foldl' lib.attrsets.unionOfDisjoint { } (
@@ -123,7 +123,7 @@ in
 {
   inherit
     out
-    mkRunCommand
+    mkCommandFragment
     mkFile
     mkScript
     mkSymlink
