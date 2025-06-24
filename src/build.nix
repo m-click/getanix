@@ -77,7 +77,8 @@ let
 in
 
 let
-  mkSymlink = sourcePath: mkCommandFragment ''ln -sT -- ${lib.escapeShellArg sourcePath} "$outSubPath"'';
+  mkSymlink =
+    sourcePath: mkCommandFragment ''ln -sT -- ${lib.escapeShellArg sourcePath} "$outSubPath"'';
 in
 
 let
