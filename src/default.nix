@@ -6,6 +6,7 @@ let
   getanix = {
     build = import ./build.nix { inherit pkgs getanix; };
     closure = import ./closure.nix { inherit pkgs getanix; };
+    service = import ./service.nix { inherit pkgs getanix; };
     strings = import ./strings.nix { inherit pkgs getanix; };
 
     legacy = import ./legacy.nix { inherit pkgs getanix; };
