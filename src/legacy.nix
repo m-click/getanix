@@ -42,8 +42,22 @@ let
       );
     };
   mkPortableEnv =
-    { packages }:
+    {
+      user ? "sandbox",
+      group ? user,
+      uid ? 1000,
+      gid ? uid,
+      packages,
+    }:
+    assert builtins.isInt uid;
+    assert builtins.isInt gid;
     let
+      passwdFile = pkgs.writeText "passwd" ''
+        ${user}:x:${toString uid}:${toString gid}:,,,:/:/sbin/nologin
+      '';
+      groupFile = pkgs.writeText "group" ''
+        ${group}:x:${toString gid}:
+      '';
       packagesClosure = getClosure packages;
       binDir = symlinkJoinSubdirs packages "bin";
       emacsDir = symlinkJoinSubdirs packagesClosure "share/emacs";
@@ -101,6 +115,8 @@ let
         --clearenv \
         --forward-signals \
         --die-with-parent \
+        --uid ${toString uid} \
+        --gid ${toString gid} \
         --dev /dev \
         --proc /proc \
         --bind "$basedir/nix" /nix \
@@ -111,6 +127,8 @@ let
         --symlink usr/bin /bin \
         --symlink ${binDir} /usr/bin \
         --symlink ${hosts} /etc/hosts \
+        --symlink ${passwdFile} /etc/passwd \
+        --symlink ${groupFile} /etc/group \
         --ro-bind-try /etc/resolv.conf /etc/resolv.conf \
         --bind . "$(pwd)" \
         --remount-ro / \
