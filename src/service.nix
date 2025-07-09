@@ -27,11 +27,11 @@ let
     {
       name ? "service-manager",
       dataDir ? "/var/lib/${name}",
-      initialService,
+      mainService,
       extraServices ? [ ],
     }:
     let
-      allServices = getAllTransitiveDependencyServices ([ initialService ] ++ extraServices);
+      allServices = getAllTransitiveDependencyServices ([ mainService ] ++ extraServices);
     in
     with getanix.build;
     mkDeriv {
@@ -73,7 +73,7 @@ let
               s6-rc \
                 -l live \
                 -u change \
-                ${lib.escapeShellArg (check.serviceName (lib.getName initialService))}
+                ${lib.escapeShellArg (check.serviceName (lib.getName mainService))}
               echo Ready >&3 # Notify readiness to the original stderr
             } &
             exec 5<&-
