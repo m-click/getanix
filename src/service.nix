@@ -79,7 +79,7 @@ let
         service = mkDir {
           "${check.serviceName name}" = mkDir {
             type = mkFile "longrun";
-            notification-fd = mkFile "2";
+            notification-fd = mkFile "3";
             producer-for = mkFile "${check.serviceName name}@log";
             "dependencies.d" = mkDir (
               builtins.foldl' lib.attrsets.unionOfDisjoint { } (
@@ -90,7 +90,7 @@ let
             );
             run = mkFile ''
               #!${pkgs.busybox}/bin/sh
-              exec ${out}/bin/run-${check.serviceName name}
+              exec ${out}/bin/run-${check.serviceName name} 2>&3
             '';
           };
           "${check.serviceName name}@log" = mkDir {
