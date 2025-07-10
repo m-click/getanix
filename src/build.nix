@@ -50,6 +50,10 @@ let
 in
 
 let
+  emptyFragment = concatFragments [ ];
+in
+
+let
   mkCommandFragment =
     buildCommand:
     mkFragment {
@@ -124,6 +128,7 @@ in
 {
   inherit
     out
+    emptyFragment
     mkCommandFragment
     mkFile
     mkScript
