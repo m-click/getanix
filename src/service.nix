@@ -183,7 +183,7 @@ let
           mkdir -p certs
           touch     certs/server.key
           chmod 600 certs/server.key
-          ${pkgs.openssl}/bin/openssl req -x509 -newkey rsa:4096 -sha256 -days 36500 -nodes \
+          ${pkgs.openssl}/bin/openssl req -x509 -newkey ed448 -days 36500 -nodes \
             -keyout certs/server.key \
             -out    certs/server-with-intermediates.crt \
             -subj "/CN=localhost" \
@@ -287,7 +287,7 @@ let
           mkdir -p certs
           touch     certs/postgresql.key
           chmod 600 certs/postgresql.key
-          ${pkgs.openssl}/bin/openssl req -x509 -newkey rsa:4096 -sha256 -days 36500 -nodes \
+          ${pkgs.openssl}/bin/openssl req -x509 -newkey ed448 -days 36500 -nodes \
             -keyout certs/postgresql.key \
             -out    certs/postgresql.crt \
             -subj "/CN=localhost" \
