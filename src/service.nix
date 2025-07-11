@@ -19,19 +19,13 @@ let
 in
 
 let
-  waitForPort = port: ''
-    while ! ${pkgs.netcat}/bin/nc -N 127.0.0.1 -- ${lib.escapeShellArg (toString port)} </dev/null >/dev/null 2>/dev/null; do
-      sleep 0.01
-    done
-  '';
+  checkReadyPort = port:
+    ''${pkgs.netcat}/bin/nc -N -- 127.0.0.1 ${lib.escapeShellArg (toString port)}'';
 in
 
 let
-  waitForUnixSocket = unixSocket: ''
-    while ! ${pkgs.netcat}/bin/nc -UN -- ${lib.escapeShellArg unixSocket} </dev/null >/dev/null 2>/dev/null; do
-      sleep 0.01
-    done
-  '';
+  checkReadyUnixSocket = unixSocketFileName:
+    ''${pkgs.netcat}/bin/nc -NU -- ${getanix.build.out}/run/${lib.escapeShellArg unixSocketFileName}'';
 in
 
 let
@@ -39,12 +33,15 @@ let
     {
       name,
       dataDir,
-      dependencies ? [ ],
-      initDataDir ? "",
-      waitForService ? null,
-      execService,
-      conf ? getanix.build.emptyFragment,
+      runDir,
+      dependencies,
+      serviceCreatesDataDir,
+      serviceCreatesAndCleansRunDir,
+      externalReadinessCheck,
+      initAndExecServiceWithStderrOnFd3,
+      conf ? null,
     }:
+    assert (externalReadinessCheck == null || !lib.hasInfix "\n" externalReadinessCheck);
     with getanix.build;
     mkDeriv {
       name = check.serviceName name;
@@ -55,27 +52,30 @@ let
             set -Cefu
             exec 3>&2 2>&1
             export PATH=${lib.makeBinPath [ pkgs.busybox ]}
-            mkdir -p -- ${lib.escapeShellArg dataDir}
-            cd       -- ${lib.escapeShellArg dataDir}
-            rm -rf run
-            mkdir  run
-            ${initDataDir}
-            ${
-              if waitForService == null then
-                ""
-              else
-                ''
-                  {
-                    ${waitForService}
-                    echo Ready >&3 # Notify readiness to the original stderr
-                  } &
-                ''
-            }
-            ${execService}
+            cd /
+            ${lib.optionalString (!serviceCreatesDataDir) ''
+              mkdir -p -- "$(readlink ${out}/data)"
+            ''}
+            ${lib.optionalString (!serviceCreatesAndCleansRunDir) ''
+              mkdir -p -- "$(readlink ${out}/run)"
+              find ${out}/run/ -mindepth 1 -xdev -delete
+            ''}
+            ${lib.optionalString (externalReadinessCheck != null) ''
+              {
+                sleep 0.01
+                while ! ${externalReadinessCheck} </dev/null >/dev/null 2>/dev/null; do
+                  sleep 0.01
+                done
+                echo Ready >&3 # Notify readiness to the original stderr
+                exec 3<&-
+              } &
+            ''}
+            ${initAndExecServiceWithStderrOnFd3}
           '';
         };
-        inherit conf;
-        run = mkSymlink "${dataDir}/run";
+        conf = mkOptional (conf != null) conf;
+        data = mkSymlink dataDir;
+        run = mkSymlink runDir;
         service = mkDir {
           "${check.serviceName name}" = mkDir {
             type = mkFile "longrun";
@@ -111,52 +111,53 @@ let
     {
       name ? "services",
       dataDir,
+      runDir,
       mainService,
       extraServices ? [ ],
     }:
     let
       services = [ mainService ] ++ extraServices;
-      allServiceDirsWithDependencies =
-        builtins.filter lib.pathIsDirectory (
-          builtins.map (drv: "${drv}/service") (getanix.closure.closureList services)
-        );
+      serviceDirsOfAllServicesWithDependencies = builtins.filter lib.pathIsDirectory (
+        builtins.map (drv: "${drv}/service") (getanix.closure.closureList services)
+      );
     in
     with getanix.build;
     mkService {
-      inherit name dataDir;
-      initDataDir = ''
-        cd run
-        mkfifo .initial-notification
-        exec 4<>.initial-notification
-        exec 5<.initial-notification
-        exec 6>.initial-notification
+      inherit name dataDir runDir;
+      dependencies = [ ];
+      serviceCreatesDataDir = false;
+      serviceCreatesAndCleansRunDir = false;
+      externalReadinessCheck = null;
+      initAndExecServiceWithStderrOnFd3 = ''
+        mkfifo  ${out}/run/initial-notification
+        exec 4<>${out}/run/initial-notification
+        exec 5< ${out}/run/initial-notification
+        exec 6> ${out}/run/initial-notification
         exec 4<&-
-        rm -f .initial-notification
-        mkdir scandir
-      '';
-      waitForService = ''
-        exec 6<&-
-        read -r _INITIAL_NOTIFICATION <&5 >/dev/null
-        # Workaround for https://github.com/skarnet/s6-rc/issues/10
-        cp -Rp ${out}/conf/compiled compiled
-        chmod -R u+w compiled
-        ${pkgs.s6-rc}/bin/s6-rc-init \
-          -c "$(pwd)"/compiled \
-          -l "$(pwd)"/live \
-          "$(pwd)"/scandir
-        ${pkgs.s6-rc}/bin/s6-rc \
-          -l live \
-          -u change \
-          ${lib.escapeShellArg (check.serviceName (lib.getName mainService))}
-      '';
-      execService = ''
+        rm -f   ${out}/run/initial-notification
+        mkdir   ${out}/run/scandir
+        {
+          exec 6<&-
+          read -r _INITIAL_NOTIFICATION <&5 >/dev/null
+          # Workaround for https://github.com/skarnet/s6-rc/issues/10
+          cp -Rp ${out}/conf/compiled ${out}/run/compiled
+          chmod -R u+w ${out}/run/compiled
+          ${pkgs.s6-rc}/bin/s6-rc-init \
+            -c ${out}/run/compiled \
+            -l ${out}/run/live \
+            ${out}/run/scandir
+          ${pkgs.s6-rc}/bin/s6-rc \
+            -l ${out}/run/live \
+            -u change \
+            ${lib.escapeShellArg (check.serviceName (lib.getName mainService))}
+          echo Ready >&3 # Notify readiness to the original stderr
+          exec 3<&-
+        } &
         exec 5<&-
-        exec ${pkgs.s6}/bin/s6-svscan -d 6 "$(pwd)"/scandir
+        exec ${pkgs.s6}/bin/s6-svscan -d 6 ${out}/run/scandir
       '';
       conf = mkDir {
-        compiled = mkCommandFragment ''${pkgs.s6-rc}/bin/s6-rc-compile "$outSubPath" ${
-          lib.concatStringsSep " " allServiceDirsWithDependencies
-        }'';
+        compiled = mkCommandFragment ''${pkgs.s6-rc}/bin/s6-rc-compile "$outSubPath" ${lib.concatStringsSep " " serviceDirsOfAllServicesWithDependencies}'';
       };
     };
 in
@@ -166,44 +167,50 @@ let
     {
       name ? "nginx",
       dataDir,
+      runDir,
       nginx ? pkgs.nginx,
       extraDependencies ? [ ],
       mainPort,
-      extraMainConfig ? "",
+      selfSignedCertOptions ? "ed448 -days 36500",
+      extraMainConfig ? null,
       extraHttpConfig,
     }:
     assert builtins.isInt mainPort;
     with getanix.build;
     mkService {
-      inherit name dataDir;
+      inherit name dataDir runDir;
       dependencies = extraDependencies;
-      initDataDir = ''
-        if [ ! -e certs/server.key ]; then
+      serviceCreatesDataDir = false;
+      serviceCreatesAndCleansRunDir = false;
+      externalReadinessCheck = checkReadyPort mainPort;
+      initAndExecServiceWithStderrOnFd3 = ''
+        if [ ! -e   ${out}/data/certs/server.key ]; then
           echo "$(date +'%Y-%m-%d %H:%M:%S') Generating self-signed certificate ..."
-          mkdir -p certs
-          touch     certs/server.key
-          chmod 600 certs/server.key
-          ${pkgs.openssl}/bin/openssl req -x509 -newkey ed448 -days 36500 -nodes \
-            -keyout certs/server.key \
-            -out    certs/server-with-intermediates.crt \
+          mkdir -p  ${out}/data/certs
+          touch     ${out}/data/certs/server.key.tmp
+          chmod 600 ${out}/data/certs/server.key.tmp
+          ${pkgs.openssl}/bin/openssl req -x509 -newkey ${selfSignedCertOptions} -days 36500 -nodes \
+            -keyout ${out}/data/certs/server.key.tmp \
+            -out    ${out}/data/certs/server-with-intermediates.crt.tmp \
             -subj "/CN=localhost" \
             -addext "subjectAltName=DNS:localhost"
+          mv        ${out}/data/certs/server.key.tmp \
+                    ${out}/data/certs/server.key
+          mv        ${out}/data/certs/server-with-intermediates.crt.tmp \
+                    ${out}/data/certs/server-with-intermediates.crt
           echo "$(date +'%Y-%m-%d %H:%M:%S') Finished."
         fi
-      '';
-      waitForService = waitForPort mainPort;
-      execService = ''
         exec ${nginx}/bin/nginx -e /dev/stdout -c ${out}/conf/nginx.conf
       '';
       conf = mkDir {
-        certs = mkSymlink "${dataDir}/certs";
+        certs = mkSymlink "${out}/data/certs";
         "fastcgi_params" = mkSymlink "${nginx}/conf/fastcgi_params";
         "mime.types" = mkSymlink "${nginx}/conf/mime.types";
         "nginx.conf" = mkFile ''
           daemon off;
           error_log stderr error;
           pid ${out}/run/nginx.pid;
-          ${extraMainConfig}
+          ${lib.optionalString (extraMainConfig != null) extraMainConfig}
           http {
             client_body_temp_path ${out}/data/client_body_temp;
             fastcgi_temp_path     ${out}/data/fastcgi_temp;
@@ -225,6 +232,7 @@ let
     {
       name ? "php-fpm",
       dataDir,
+      runDir,
       php ? pkgs.php,
       extraGlobalConfig ? "",
       extraPoolConfig ? "",
@@ -240,14 +248,14 @@ let
     in
     with getanix.build;
     mkService {
-      inherit name dataDir;
+      inherit name dataDir runDir;
       dependencies = extraDependencies;
-      initDataDir = ''
-        mkdir -p sessions
+      serviceCreatesDataDir = false;
+      serviceCreatesAndCleansRunDir = false;
+      externalReadinessCheck = checkReadyUnixSocket "php-fpm.sock";
+      initAndExecServiceWithStderrOnFd3 = ''
+        mkdir -p ${out}/data/sessions
         ${extraInitCommands}
-      '';
-      waitForService = waitForUnixSocket "run/php-fpm.sock";
-      execService = ''
         exec ${php}/bin/php-fpm -y ${out}/conf/php-fpm.conf
       '';
       conf = mkDir {
@@ -263,7 +271,7 @@ let
           slowlog = /dev/stderr
           clear_env = yes
           env[PATH] = ${lib.makeBinPath paths}
-          php_admin_value[session.save_path] = ${check.configString dataDir}/sessions
+          php_admin_value[session.save_path] = ${out}/data/sessions
           ${extraPoolConfig}
         '';
       };
@@ -275,48 +283,49 @@ let
     {
       name ? "postgresql",
       dataDir,
+      runDir,
       postgresql ? pkgs.postgresql,
       extraConfig ? "",
     }:
     with getanix.build;
     mkService {
-      inherit name dataDir;
-      initDataDir = ''
-        if [ ! -e certs/postgresql.key ]; then
+      inherit name dataDir runDir;
+      dependencies = [ ];
+      serviceCreatesDataDir = true;
+      serviceCreatesAndCleansRunDir = false;
+      externalReadinessCheck =
+        ''${postgresql}/bin/pg_isready -h ${out}/run -p "$(cd ${out}/run && find . -type s | cut -d. -f5)"'';
+      initAndExecServiceWithStderrOnFd3 = ''
+        if [ ! -e ${lib.escapeShellArg dataDir} ]; then
+          ${postgresql}/bin/initdb -D ${lib.escapeShellArg dataDir} -E UTF-8 -A peer
+        fi
+        if [ ! -e   ${lib.escapeShellArg dataDir}/certs/postgresql.key ]; then
           echo "$(date +'%Y-%m-%d %H:%M:%S') Generating self-signed certificate ..."
-          mkdir -p certs
-          touch     certs/postgresql.key
-          chmod 600 certs/postgresql.key
+          mkdir -p  ${lib.escapeShellArg dataDir}/certs
+          touch     ${lib.escapeShellArg dataDir}/certs/postgresql.key.tmp
+          chmod 600 ${lib.escapeShellArg dataDir}/certs/postgresql.key.tmp
           ${pkgs.openssl}/bin/openssl req -x509 -newkey ed448 -days 36500 -nodes \
-            -keyout certs/postgresql.key \
-            -out    certs/postgresql.crt \
+            -keyout ${lib.escapeShellArg dataDir}/certs/postgresql.key.tmp \
+            -out    ${lib.escapeShellArg dataDir}/certs/postgresql.crt.tmp \
             -subj "/CN=localhost" \
             -addext "subjectAltName=DNS:localhost"
+          mv        ${lib.escapeShellArg dataDir}/certs/postgresql.key.tmp \
+                    ${lib.escapeShellArg dataDir}/certs/postgresql.key
+          mv        ${lib.escapeShellArg dataDir}/certs/postgresql.crt.tmp \
+                    ${lib.escapeShellArg dataDir}/certs/postgresql.crt
           echo "$(date +'%Y-%m-%d %H:%M:%S') PostgreSQL certificate generated."
         fi
-        if [ ! -e data ]; then
-          ${postgresql}/bin/initdb -D data -E UTF-8 -A peer
-        fi
-        ln -sf ${out}/conf/postgresql.conf data/
-        ln -sf ${out}/conf/pg_hba.conf     data/
-        rm -f data/postmaster.pid
-        mkdir run/postgresql
-      '';
-      waitForService = ''
-        cd run/postgresql
-        while ! ${postgresql}/bin/pg_isready -h "$(pwd)" -p "$(find . -type s | cut -d. -f5)" >/dev/null; do
-          sleep 0.01
-        done
-      '';
-      execService = ''
-        exec ${postgresql}/bin/postgres -D "$(pwd)"/data
+        ln -sf ${out}/conf/postgresql.conf ${lib.escapeShellArg dataDir}/
+        ln -sf ${out}/conf/pg_hba.conf     ${lib.escapeShellArg dataDir}/
+        rm -f ${lib.escapeShellArg dataDir}/postmaster.pid
+        exec ${postgresql}/bin/postgres -D ${lib.escapeShellArg dataDir}
       '';
       conf = mkDir {
         "postgresql.conf" = mkFile ''
-          unix_socket_directories = '${out}/run/postgresql'
+          unix_socket_directories = '${out}/run'
           ssl = on
-          ssl_cert_file = '../certs/postgresql.crt'
-          ssl_key_file  = '../certs/postgresql.key'
+          ssl_cert_file = '${out}/data/certs/postgresql.crt'
+          ssl_key_file  = '${out}/data/certs/postgresql.key'
           log_timezone = 'UTC'
           datestyle = 'iso, mdy'
           timezone = 'UTC'
@@ -339,11 +348,12 @@ in
 
 {
   inherit
+    checkReadyPort
+    checkReadyUnixSocket
     mkService
     mkServiceManager
     mkNginxService
     mkPhpFpmService
     mkPostgresqlService
-    waitForPort
     ;
 }
