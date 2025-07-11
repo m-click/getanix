@@ -54,6 +54,10 @@ let
 in
 
 let
+  mkOptional = cond: fragment: if cond then fragment else emptyFragment;
+in
+
+let
   mkCommandFragment =
     buildCommand:
     mkFragment {
@@ -129,6 +133,7 @@ in
   inherit
     out
     emptyFragment
+    mkOptional
     mkCommandFragment
     mkFile
     mkScript
