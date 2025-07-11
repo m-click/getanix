@@ -67,6 +67,15 @@ let
 in
 
 let
+  mkSymlink =
+    sourcePath:
+    mkFragment {
+      mkBuildCommand = i: ''ln -sT -- $(sed "s:${out}:$out:g" <"$file${builtins.toString i}Path") "$outSubPath"'';
+      mkFileArgs = i: { "file${builtins.toString i}" = sourcePath; };
+    };
+in
+
+let
   mkFile =
     data:
     mkFragment {
@@ -82,11 +91,6 @@ let
       (mkFile data)
       (mkCommandFragment ''chmod +x -- "$outSubPath"'')
     ];
-in
-
-let
-  mkSymlink =
-    sourcePath: mkCommandFragment ''ln -sT -- ${lib.escapeShellArg sourcePath} "$outSubPath"'';
 in
 
 let
