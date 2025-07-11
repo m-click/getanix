@@ -205,11 +205,11 @@ let
           pid ${out}/run/nginx.pid;
           ${extraMainConfig}
           http {
-            client_body_temp_path ${out}/run/body;
-            fastcgi_temp_path     ${out}/run/fastcgi;
-            proxy_temp_path       ${out}/run/proxy;
-            scgi_temp_path        ${out}/run/scgi;
-            uwsgi_temp_path       ${out}/run/uwsgi;
+            client_body_temp_path ${out}/data/client_body_temp;
+            fastcgi_temp_path     ${out}/data/fastcgi_temp;
+            proxy_temp_path       ${out}/data/proxy_temp;
+            scgi_temp_path        ${out}/data/scgi_temp;
+            uwsgi_temp_path       ${out}/data/uwsgi_temp;
             access_log /dev/stdout;
             include mime.types;
             default_type application/octet-stream;
