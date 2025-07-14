@@ -189,7 +189,7 @@ let
           mkdir -p  ${out}/data/certs
           touch     ${out}/data/certs/server.key.tmp
           chmod 600 ${out}/data/certs/server.key.tmp
-          ${pkgs.openssl}/bin/openssl req -x509 -newkey ${selfSignedCertOptions} -days 36500 -nodes \
+          ${pkgs.openssl}/bin/openssl req -x509 -newkey ${selfSignedCertOptions} -nodes \
             -keyout ${out}/data/certs/server.key.tmp \
             -out    ${out}/data/certs/server-with-intermediates.crt.tmp \
             -subj "/CN=localhost" \
