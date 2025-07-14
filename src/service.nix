@@ -285,6 +285,7 @@ let
       dataDir,
       runDir,
       postgresql ? pkgs.postgresql,
+      selfSignedCertOptions ? "ed448 -days 36500",
       extraConfig ? "",
     }:
     with getanix.build;
@@ -304,7 +305,7 @@ let
           mkdir -p  ${lib.escapeShellArg dataDir}/certs
           touch     ${lib.escapeShellArg dataDir}/certs/postgresql.key.tmp
           chmod 600 ${lib.escapeShellArg dataDir}/certs/postgresql.key.tmp
-          ${pkgs.openssl}/bin/openssl req -x509 -newkey ed448 -days 36500 -nodes \
+          ${pkgs.openssl}/bin/openssl req -x509 -newkey ${selfSignedCertOptions} -nodes \
             -keyout ${lib.escapeShellArg dataDir}/certs/postgresql.key.tmp \
             -out    ${lib.escapeShellArg dataDir}/certs/postgresql.crt.tmp \
             -subj "/CN=localhost" \
