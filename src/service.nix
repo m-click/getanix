@@ -200,6 +200,7 @@ let
                     ${out}/data/certs/server-with-intermediates.crt
           echo "$(date +'%Y-%m-%d %H:%M:%S') Finished."
         fi
+        echo "Listening on main port ${toString mainPort}"
         exec ${nginx}/bin/nginx -e /dev/stdout -c ${out}/conf/nginx.conf
       '';
       conf = mkDir {
@@ -208,7 +209,7 @@ let
         "mime.types" = mkSymlink "${nginx}/conf/mime.types";
         "nginx.conf" = mkFile ''
           daemon off;
-          error_log stderr error;
+          error_log stderr notice;
           pid ${out}/run/nginx.pid;
           ${lib.optionalString (extraMainConfig != null) extraMainConfig}
           http {
