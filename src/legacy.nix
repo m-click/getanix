@@ -118,6 +118,7 @@ let
         --uid ${toString uid} \
         --gid ${toString gid} \
         --dev /dev \
+        --bind /dev/log /dev/log \
         --proc /proc \
         --bind "$basedir/nix" /nix \
         --bind "$basedir/homedir" /homedir \
