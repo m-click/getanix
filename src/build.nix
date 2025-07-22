@@ -70,8 +70,8 @@ let
   mkSymlink =
     sourcePath:
     mkFragment {
-      mkBuildCommand = i: ''ln -sT -- $(sed "s:${out}:$out:g" <"$file${builtins.toString i}Path") "$outSubPath"'';
-      mkFileArgs = i: { "file${builtins.toString i}" = sourcePath; };
+      mkBuildCommand = i: ''ln -sT -- $(sed "s:${out}:$out:g" <"$file${toString i}Path") "$outSubPath"'';
+      mkFileArgs = i: { "file${toString i}" = sourcePath; };
     };
 in
 
@@ -79,8 +79,8 @@ let
   mkFile =
     data:
     mkFragment {
-      mkBuildCommand = i: ''sed "s:${out}:$out:g" <"$file${builtins.toString i}Path" >"$outSubPath"'';
-      mkFileArgs = i: { "file${builtins.toString i}" = data; };
+      mkBuildCommand = i: ''sed "s:${out}:$out:g" <"$file${toString i}Path" >"$outSubPath"'';
+      mkFileArgs = i: { "file${toString i}" = data; };
     };
 in
 
