@@ -16,7 +16,7 @@
 }:
 
 let
-  staticBubblewrap = pkgs.pkgsStatic.bubblewrap;
+  staticBubblewrap = getanix.sandbox.bubblewrapStaticWithForwardSignals;
   hosts = pkgs.writeText "hosts" ''
     127.0.0.1 localhost
     ::1       localhost
