@@ -32,8 +32,8 @@ let
   mkService =
     {
       name,
-      dataDir,
-      runDir,
+      data,
+      run,
       dependencies,
       serviceCreatesDataDir,
       serviceCreatesAndCleansRunDir,
@@ -74,8 +74,8 @@ let
           '';
         };
         conf = mkOptional (conf != null) conf;
-        data = mkSymlink dataDir;
-        run = mkSymlink runDir;
+        data = mkSymlink data;
+        run = mkSymlink run;
         service = mkDir {
           "${check.serviceName name}" = mkDir {
             type = mkFile "longrun";
@@ -110,8 +110,8 @@ let
   mkServiceManager =
     {
       name ? "services",
-      dataDir,
-      runDir,
+      data,
+      run,
       mainService,
       extraServices ? [ ],
     }:
@@ -123,7 +123,7 @@ let
     in
     with getanix.build;
     mkService {
-      inherit name dataDir runDir;
+      inherit name data run;
       dependencies = [ ];
       serviceCreatesDataDir = false;
       serviceCreatesAndCleansRunDir = false;
@@ -166,8 +166,8 @@ let
   mkNginxService =
     {
       name ? "nginx",
-      dataDir,
-      runDir,
+      data,
+      run,
       nginx ? pkgs.nginx,
       extraDependencies ? [ ],
       mainPort,
@@ -178,7 +178,7 @@ let
     assert builtins.isInt mainPort;
     with getanix.build;
     mkService {
-      inherit name dataDir runDir;
+      inherit name data run;
       dependencies = extraDependencies;
       serviceCreatesDataDir = false;
       serviceCreatesAndCleansRunDir = false;
@@ -232,8 +232,8 @@ let
   mkPhpFpmService =
     {
       name ? "php-fpm",
-      dataDir,
-      runDir,
+      data,
+      run,
       php ? pkgs.php,
       extraGlobalConfig ? "",
       extraPoolConfig ? "",
@@ -249,7 +249,7 @@ let
     in
     with getanix.build;
     mkService {
-      inherit name dataDir runDir;
+      inherit name data run;
       dependencies = extraDependencies;
       serviceCreatesDataDir = false;
       serviceCreatesAndCleansRunDir = false;
@@ -283,44 +283,44 @@ let
   mkPostgresqlService =
     {
       name ? "postgresql",
-      dataDir,
-      runDir,
+      data,
+      run,
       postgresql ? pkgs.postgresql,
       selfSignedCertOptions ? "ed448 -days 36500",
       extraConfig ? "",
     }:
     with getanix.build;
     mkService {
-      inherit name dataDir runDir;
+      inherit name data run;
       dependencies = [ ];
       serviceCreatesDataDir = true;
       serviceCreatesAndCleansRunDir = false;
       externalReadinessCheck =
         ''${postgresql}/bin/pg_isready -h ${out}/run -p "$(cd ${out}/run && find . -type s | cut -d. -f5)"'';
       initAndExecServiceWithStderrOnFd3 = ''
-        if [ ! -e ${lib.escapeShellArg dataDir} ]; then
-          ${postgresql}/bin/initdb -D ${lib.escapeShellArg dataDir} -E UTF-8 -A peer
+        if [ ! -e ${lib.escapeShellArg data} ]; then
+          ${postgresql}/bin/initdb -D ${lib.escapeShellArg data} -E UTF-8 -A peer
         fi
-        if [ ! -e   ${lib.escapeShellArg dataDir}/certs/postgresql.key ]; then
+        if [ ! -e   ${lib.escapeShellArg data}/certs/postgresql.key ]; then
           echo "$(date +'%Y-%m-%d %H:%M:%S') Generating self-signed certificate ..."
-          mkdir -p  ${lib.escapeShellArg dataDir}/certs
-          touch     ${lib.escapeShellArg dataDir}/certs/postgresql.key.tmp
-          chmod 600 ${lib.escapeShellArg dataDir}/certs/postgresql.key.tmp
+          mkdir -p  ${lib.escapeShellArg data}/certs
+          touch     ${lib.escapeShellArg data}/certs/postgresql.key.tmp
+          chmod 600 ${lib.escapeShellArg data}/certs/postgresql.key.tmp
           ${pkgs.openssl}/bin/openssl req -x509 -newkey ${selfSignedCertOptions} -nodes \
-            -keyout ${lib.escapeShellArg dataDir}/certs/postgresql.key.tmp \
-            -out    ${lib.escapeShellArg dataDir}/certs/postgresql.crt.tmp \
+            -keyout ${lib.escapeShellArg data}/certs/postgresql.key.tmp \
+            -out    ${lib.escapeShellArg data}/certs/postgresql.crt.tmp \
             -subj "/CN=localhost" \
             -addext "subjectAltName=DNS:localhost"
-          mv        ${lib.escapeShellArg dataDir}/certs/postgresql.key.tmp \
-                    ${lib.escapeShellArg dataDir}/certs/postgresql.key
-          mv        ${lib.escapeShellArg dataDir}/certs/postgresql.crt.tmp \
-                    ${lib.escapeShellArg dataDir}/certs/postgresql.crt
+          mv        ${lib.escapeShellArg data}/certs/postgresql.key.tmp \
+                    ${lib.escapeShellArg data}/certs/postgresql.key
+          mv        ${lib.escapeShellArg data}/certs/postgresql.crt.tmp \
+                    ${lib.escapeShellArg data}/certs/postgresql.crt
           echo "$(date +'%Y-%m-%d %H:%M:%S') PostgreSQL certificate generated."
         fi
-        ln -sf ${out}/conf/postgresql.conf ${lib.escapeShellArg dataDir}/
-        ln -sf ${out}/conf/pg_hba.conf     ${lib.escapeShellArg dataDir}/
-        rm -f ${lib.escapeShellArg dataDir}/postmaster.pid
-        exec ${postgresql}/bin/postgres -D ${lib.escapeShellArg dataDir}
+        ln -sf ${out}/conf/postgresql.conf ${lib.escapeShellArg data}/
+        ln -sf ${out}/conf/pg_hba.conf     ${lib.escapeShellArg data}/
+        rm -f ${lib.escapeShellArg data}/postmaster.pid
+        exec ${postgresql}/bin/postgres -D ${lib.escapeShellArg data}
       '';
       conf = mkDir {
         "postgresql.conf" = mkFile ''
