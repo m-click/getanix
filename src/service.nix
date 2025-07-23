@@ -53,7 +53,7 @@ let
           passthru ? { },
           externalReadinessCheck,
           initAndExecServiceWithStderrOnFd3,
-          conf ? null,
+          conf ? { },
         }:
         with getanix.build;
         let
@@ -94,7 +94,7 @@ let
                 ${initAndExecServiceWithStderrOnFd3}
               '';
             };
-            conf = mkOptional (conf != null) conf;
+            conf = mkDir conf;
             service = mkDir {
               "${check.serviceName name}" = mkDir {
                 type = mkFile "longrun";
@@ -194,7 +194,7 @@ let
             exec 5<&-
             exec ${pkgs.s6}/bin/s6-svscan -d 6 ${lib.escapeShellArg run}/scandir
           '';
-          conf = mkDir {
+          conf = {
             compiled = mkCommandFragment ''${pkgs.s6-rc}/bin/s6-rc-compile "$outSubPath" ${lib.concatStringsSep " " serviceDirsOfAllServicesWithDependencies}'';
           };
         };
@@ -254,7 +254,7 @@ let
             echo "Listening on port ${port}"
             exec ${nginx}/bin/nginx -e /dev/stdout -c ${out}/conf/nginx.conf
           '';
-          conf = mkDir {
+          conf = {
             "nginx.conf" = mkFile ''
               daemon off;
               error_log stderr notice;
@@ -321,7 +321,7 @@ let
             ${extraInitCommands}
             exec ${php}/bin/php-fpm -y ${out}/conf/php-fpm.conf
           '';
-          conf = mkDir {
+          conf = {
             "php-fpm.conf" = mkFile ''
               [global]
               daemonize = no
@@ -402,7 +402,7 @@ let
             rm -f ${lib.escapeShellArg data}/postmaster.pid
             exec ${postgresql}/bin/postgres -D ${lib.escapeShellArg data}
           '';
-          conf = mkDir {
+          conf = {
             "postgresql.conf" = mkFile ''
               unix_socket_directories = '${run}'
               port = ${port}
