@@ -126,7 +126,11 @@ in
 
 let
   mkDeriv =
-    { name, out }:
+    {
+      name,
+      passthru ? { },
+      out,
+    }:
     let
       fragment = concatFragments [
         (mkCommandFragment ''outSubPath=$out'')
@@ -137,6 +141,7 @@ let
       );
       derivationArgs = lib.attrsets.unionOfDisjoint fileArgs {
         passAsFile = builtins.attrNames fileArgs;
+        inherit passthru;
       };
       buildCommand = builtins.concatStringsSep "\n" (
         lib.lists.imap1 (i: mkBuildCommand: mkBuildCommand i) fragment.mkBuildCommandList

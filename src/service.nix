@@ -50,6 +50,7 @@ let
           dependencies,
           serviceCreatesDataDir,
           serviceCreatesAndCleansRunDir,
+          passthru ? { },
           externalReadinessCheck,
           initAndExecServiceWithStderrOnFd3,
           conf ? null,
@@ -58,6 +59,7 @@ let
         with getanix.build;
         mkDeriv {
           name = check.serviceName name;
+          inherit passthru;
           out = mkDir {
             bin = mkDir {
               "run-${check.serviceName name}" = mkScript ''
