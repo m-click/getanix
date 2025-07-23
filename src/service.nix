@@ -256,7 +256,6 @@ let
           conf = mkDir {
             certs = mkSymlink "${out}/data/certs";
             "fastcgi_params" = mkSymlink "${nginx}/conf/fastcgi_params";
-            "mime.types" = mkSymlink "${nginx}/conf/mime.types";
             "nginx.conf" = mkFile ''
               daemon off;
               error_log stderr notice;
@@ -269,7 +268,7 @@ let
                 scgi_temp_path        ${out}/data/scgi_temp;
                 uwsgi_temp_path       ${out}/data/uwsgi_temp;
                 access_log /dev/stdout;
-                include mime.types;
+                include "${nginx}/conf/mime.types";
                 default_type application/octet-stream;
                 ${extraHttpConfig { inherit port; }}
               }
