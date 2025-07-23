@@ -12,7 +12,7 @@ let
 in
 
 let
-  out = "/replace-with-out-${builtins.hashString "sha256" "${fragmentType}.out"}";
+  out = getanix.strings.createReplacementMarker fragmentType "out";
 in
 
 let

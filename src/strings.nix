@@ -8,14 +8,6 @@ let
 in
 
 let
-  mapLines =
-    indent: list: f:
-    lib.concatMapStringsSep "\n" (
-      elem: indent + builtins.replaceStrings [ "\n" ] [ "\n${indent}" ] (lib.removeSuffix "\n" (f elem))
-    ) list;
-in
-
-let
   checkRegex =
     name: regex: s:
     if builtins.match regex s == null then
@@ -24,6 +16,19 @@ let
       s;
 in
 
+let
+  createReplacementMarker =
+    namespace: name: "/replace-with-${name}-${builtins.hashString "sha256" "${namespace}.${name}"}";
+in
+
+let
+  mapLines =
+    indent: list: f:
+    lib.concatMapStringsSep "\n" (
+      elem: indent + builtins.replaceStrings [ "\n" ] [ "\n${indent}" ] (lib.removeSuffix "\n" (f elem))
+    ) list;
+in
+
 {
-  inherit checkRegex mapLines;
+  inherit checkRegex createReplacementMarker mapLines;
 }
