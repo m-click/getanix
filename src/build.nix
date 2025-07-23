@@ -16,6 +16,10 @@ let
 in
 
 let
+  writeArgToStdout = getanix.strings.createReplacementMarker fragmentType "writeArgToStdout";
+in
+
+let
   isValidPathComponent =
     name:
     (builtins.match ''[ -~]+'' name != null)
@@ -67,21 +71,25 @@ let
 in
 
 let
-  mkSymlink =
-    sourcePath:
+  mkCommandFragmentWithArg =
+    buildCommand: arg:
     mkFragment {
-      mkBuildCommand = i: ''ln -sT -- $(sed "s:${out}:$out:g" <"$file${toString i}Path") "$outSubPath"'';
-      mkFileArgs = i: { "file${toString i}" = sourcePath; };
+      mkBuildCommand =
+        i:
+        let
+          writeArgToStdoutCommand = ''sed "s:${out}:$out:g" <"$file${toString i}Path"'';
+        in
+        builtins.replaceStrings [ writeArgToStdout ] [ writeArgToStdoutCommand ] buildCommand;
+      mkFileArgs = i: { "file${toString i}" = arg; };
     };
 in
 
 let
-  mkFile =
-    data:
-    mkFragment {
-      mkBuildCommand = i: ''sed "s:${out}:$out:g" <"$file${toString i}Path" >"$outSubPath"'';
-      mkFileArgs = i: { "file${toString i}" = data; };
-    };
+  mkSymlink = mkCommandFragmentWithArg ''ln -sT -- $(${writeArgToStdout}) "$outSubPath"'';
+in
+
+let
+  mkFile = mkCommandFragmentWithArg ''${writeArgToStdout} >"$outSubPath"'';
 in
 
 let
@@ -136,9 +144,11 @@ in
 {
   inherit
     out
+    writeArgToStdout
     emptyFragment
     mkOptional
     mkCommandFragment
+    mkCommandFragmentWithArg
     mkFile
     mkScript
     mkSymlink
