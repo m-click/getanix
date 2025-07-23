@@ -366,15 +366,14 @@ let
         }:
         let
           certs = "${data}/certs";
+          pghost = run;
         in
         with getanix.build;
         {
           dependencies = [ ];
           serviceCreatesDataDir = true;
           serviceCreatesAndCleansRunDir = false;
-          passthru = {
-            pghost = run;
-          };
+          passthru = { inherit pghost; };
           externalReadinessCheck =
             { sock, port }:
             ''${postgresql}/bin/pg_isready -h ${lib.escapeShellArg run} -p ${lib.escapeShellArg port}'';
