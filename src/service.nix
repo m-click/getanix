@@ -371,6 +371,15 @@ let
         let
           certs = "${data}/certs";
           pghost = run;
+          mkTool =
+            name:
+            mkScript ''
+              #!${pkgs.busybox}/bin/sh
+              set -Cefu
+              export PGHOST=${pghost}
+              export PGPORT=${port}
+              exec ${postgresql}/bin/${name} "$@"
+            '';
         in
         {
           dependencies = [ ];
@@ -428,6 +437,15 @@ let
               local   all      all          peer
               hostssl all      all  all     scram-sha-256
             '';
+          };
+          tools = {
+            createdb = mkTool "createdb";
+            createlang = mkTool "createlang";
+            createuser = mkTool "createuser";
+            dropdb = mkTool "dropdb";
+            droplang = mkTool "droplang";
+            dropuser = mkTool "dropuser";
+            psql = mkTool "psql";
           };
         };
     };
