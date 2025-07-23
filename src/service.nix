@@ -227,6 +227,9 @@ let
           sock,
           port,
         }:
+        let
+          certs = "${data}/certs";
+        in
         with getanix.build;
         {
           dependencies = extraDependencies;
@@ -234,20 +237,20 @@ let
           serviceCreatesAndCleansRunDir = false;
           externalReadinessCheck = simpleReadinessCheck;
           initAndExecServiceWithStderrOnFd3 = ''
-            if [ ! -e   ${out}/data/certs/server.key ]; then
+            if [ ! -e   ${lib.escapeShellArg certs}/server.key ]; then
               echo "$(date +'%Y-%m-%d %H:%M:%S') Generating self-signed certificate ..."
-              mkdir -p  ${out}/data/certs
-              touch     ${out}/data/certs/server.key.tmp
-              chmod 600 ${out}/data/certs/server.key.tmp
+              mkdir -p  ${lib.escapeShellArg certs}
+              touch     ${lib.escapeShellArg certs}/server.key.tmp
+              chmod 600 ${lib.escapeShellArg certs}/server.key.tmp
               ${pkgs.openssl}/bin/openssl req -x509 -newkey ${selfSignedCertOptions} -nodes \
-                -keyout ${out}/data/certs/server.key.tmp \
-                -out    ${out}/data/certs/server-with-intermediates.crt.tmp \
+                -keyout ${lib.escapeShellArg certs}/server.key.tmp \
+                -out    ${lib.escapeShellArg certs}/server-with-intermediates.crt.tmp \
                 -subj "/CN=localhost" \
                 -addext "subjectAltName=DNS:localhost"
-              mv        ${out}/data/certs/server.key.tmp \
-                        ${out}/data/certs/server.key
-              mv        ${out}/data/certs/server-with-intermediates.crt.tmp \
-                        ${out}/data/certs/server-with-intermediates.crt
+              mv        ${lib.escapeShellArg certs}/server.key.tmp \
+                        ${lib.escapeShellArg certs}/server.key
+              mv        ${lib.escapeShellArg certs}/server-with-intermediates.crt.tmp \
+                        ${lib.escapeShellArg certs}/server-with-intermediates.crt
               echo "$(date +'%Y-%m-%d %H:%M:%S') Finished."
             fi
             echo "Listening on port ${port}"
@@ -269,9 +272,8 @@ let
                 include "${nginx}/conf/mime.types";
                 default_type application/octet-stream;
                 ${extraHttpConfig {
-                  certs = "${data}/certs";
+                  inherit certs port;
                   fastcgi_params = "${nginx}/conf/fastcgi_params";
-                  inherit port;
                 }}
               }
             '';
@@ -364,6 +366,9 @@ let
           sock,
           port,
         }:
+        let
+          certs = "${data}/certs";
+        in
         with getanix.build;
         {
           dependencies = [ ];
@@ -375,20 +380,20 @@ let
             if [ ! -e ${lib.escapeShellArg data} ]; then
               ${postgresql}/bin/initdb -D ${lib.escapeShellArg data} -E UTF-8 -A peer
             fi
-            if [ ! -e   ${lib.escapeShellArg data}/certs/postgresql.key ]; then
+            if [ ! -e   ${lib.escapeShellArg certs}/postgresql.key ]; then
               echo "$(date +'%Y-%m-%d %H:%M:%S') Generating self-signed certificate ..."
-              mkdir -p  ${lib.escapeShellArg data}/certs
-              touch     ${lib.escapeShellArg data}/certs/postgresql.key.tmp
-              chmod 600 ${lib.escapeShellArg data}/certs/postgresql.key.tmp
+              mkdir -p  ${lib.escapeShellArg certs}
+              touch     ${lib.escapeShellArg certs}/postgresql.key.tmp
+              chmod 600 ${lib.escapeShellArg certs}/postgresql.key.tmp
               ${pkgs.openssl}/bin/openssl req -x509 -newkey ${selfSignedCertOptions} -nodes \
-                -keyout ${lib.escapeShellArg data}/certs/postgresql.key.tmp \
-                -out    ${lib.escapeShellArg data}/certs/postgresql.crt.tmp \
+                -keyout ${lib.escapeShellArg certs}/postgresql.key.tmp \
+                -out    ${lib.escapeShellArg certs}/postgresql.crt.tmp \
                 -subj "/CN=localhost" \
                 -addext "subjectAltName=DNS:localhost"
-              mv        ${lib.escapeShellArg data}/certs/postgresql.key.tmp \
-                        ${lib.escapeShellArg data}/certs/postgresql.key
-              mv        ${lib.escapeShellArg data}/certs/postgresql.crt.tmp \
-                        ${lib.escapeShellArg data}/certs/postgresql.crt
+              mv        ${lib.escapeShellArg certs}/postgresql.key.tmp \
+                        ${lib.escapeShellArg certs}/postgresql.key
+              mv        ${lib.escapeShellArg certs}/postgresql.crt.tmp \
+                        ${lib.escapeShellArg certs}/postgresql.crt
               echo "$(date +'%Y-%m-%d %H:%M:%S') PostgreSQL certificate generated."
             fi
             ln -sf ${out}/conf/postgresql.conf ${lib.escapeShellArg data}/
@@ -401,8 +406,8 @@ let
               unix_socket_directories = '${out}/run'
               port = ${port}
               ssl = on
-              ssl_cert_file = '${out}/data/certs/postgresql.crt'
-              ssl_key_file  = '${out}/data/certs/postgresql.key'
+              ssl_cert_file = '${certs}/postgresql.crt'
+              ssl_key_file  = '${certs}/postgresql.key'
               log_timezone = 'UTC'
               datestyle = 'iso, mdy'
               timezone = 'UTC'
