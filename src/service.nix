@@ -285,10 +285,12 @@ let
       name ? "postgresql",
       data,
       run,
+      port ? 5432,
       postgresql ? pkgs.postgresql,
       selfSignedCertOptions ? "ed448 -days 36500",
       extraConfig ? "",
     }:
+    assert builtins.isInt port;
     with getanix.build;
     mkService {
       inherit name data run;
@@ -296,7 +298,7 @@ let
       serviceCreatesDataDir = true;
       serviceCreatesAndCleansRunDir = false;
       externalReadinessCheck =
-        ''${postgresql}/bin/pg_isready -h ${out}/run -p "$(cd ${out}/run && find . -type s | cut -d. -f5)"'';
+        ''${postgresql}/bin/pg_isready -h ${out}/run -p ${toString port}'';
       initAndExecServiceWithStderrOnFd3 = ''
         if [ ! -e ${lib.escapeShellArg data} ]; then
           ${postgresql}/bin/initdb -D ${lib.escapeShellArg data} -E UTF-8 -A peer
@@ -325,6 +327,7 @@ let
       conf = mkDir {
         "postgresql.conf" = mkFile ''
           unix_socket_directories = '${out}/run'
+          port = ${toString port}
           ssl = on
           ssl_cert_file = '${out}/data/certs/postgresql.crt'
           ssl_key_file  = '${out}/data/certs/postgresql.key'
