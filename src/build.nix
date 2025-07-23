@@ -85,14 +85,6 @@ let
 in
 
 let
-  mkSymlink = mkCommandFragmentWithArg ''ln -sT -- $(${writeArgToStdout}) "$outSubPath"'';
-in
-
-let
-  mkCopy = mkCommandFragmentWithArg ''cp -p -- $(${writeArgToStdout}) "$outSubPath"'';
-in
-
-let
   mkFile = mkCommandFragmentWithArg ''${writeArgToStdout} >"$outSubPath"'';
 in
 
@@ -103,6 +95,14 @@ let
       (mkFile data)
       (mkCommandFragment ''chmod +x -- "$outSubPath"'')
     ];
+in
+
+let
+  mkSymlink = mkCommandFragmentWithArg ''ln -sT -- $(${writeArgToStdout}) "$outSubPath"'';
+in
+
+let
+  mkCopy = mkCommandFragmentWithArg ''cp -p -- $(${writeArgToStdout}) "$outSubPath"'';
 in
 
 let
