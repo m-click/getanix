@@ -62,7 +62,7 @@ let
         with getanix.build;
         mkDeriv {
           name = check.serviceName name;
-          inherit passthru;
+          passthru = lib.attrsets.unionOfDisjoint passthru { inherit sock port; };
           out = mkDir {
             bin = mkDir {
               "run-${check.serviceName name}" = mkScript ''
@@ -72,11 +72,11 @@ let
                 export PATH=${lib.makeBinPath [ pkgs.busybox ]}
                 cd /
                 ${lib.optionalString (!serviceCreatesDataDir) ''
-                  mkdir -p -- "$(readlink ${out}/data)"
+                  mkdir -p -- ${lib.escapeShellArg data}
                 ''}
                 ${lib.optionalString (!serviceCreatesAndCleansRunDir) ''
-                  mkdir -p -- "$(readlink ${out}/run)"
-                  find ${out}/run/ -mindepth 1 -xdev -delete
+                  mkdir -p -- ${lib.escapeShellArg run}
+                  find ${lib.escapeShellArg run}/ -mindepth 1 -xdev -delete
                 ''}
                 ${lib.optionalString (externalReadinessCheckCommand != null) ''
                   {
@@ -95,8 +95,6 @@ let
               '';
             };
             conf = mkOptional (conf != null) conf;
-            data = mkSymlink data;
-            run = mkSymlink run;
             service = mkDir {
               "${check.serviceName name}" = mkDir {
                 type = mkFile "longrun";
@@ -169,32 +167,32 @@ let
           serviceCreatesAndCleansRunDir = false;
           externalReadinessCheck = null;
           initAndExecServiceWithStderrOnFd3 = ''
-            mkfifo  ${out}/run/initial-notification
-            exec 4<>${out}/run/initial-notification
-            exec 5< ${out}/run/initial-notification
-            exec 6> ${out}/run/initial-notification
+            mkfifo  ${lib.escapeShellArg run}/initial-notification
+            exec 4<>${lib.escapeShellArg run}/initial-notification
+            exec 5< ${lib.escapeShellArg run}/initial-notification
+            exec 6> ${lib.escapeShellArg run}/initial-notification
             exec 4<&-
-            rm -f   ${out}/run/initial-notification
-            mkdir   ${out}/run/scandir
+            rm -f   ${lib.escapeShellArg run}/initial-notification
+            mkdir   ${lib.escapeShellArg run}/scandir
             {
               exec 6<&-
               read -r _INITIAL_NOTIFICATION <&5 >/dev/null
               # Workaround for https://github.com/skarnet/s6-rc/issues/10
-              cp -Rp ${out}/conf/compiled ${out}/run/compiled
-              chmod -R u+w ${out}/run/compiled
+              cp -Rp ${out}/conf/compiled ${lib.escapeShellArg run}/compiled
+              chmod -R u+w ${lib.escapeShellArg run}/compiled
               ${pkgs.s6-rc}/bin/s6-rc-init \
-                -c ${out}/run/compiled \
-                -l ${out}/run/live \
-                ${out}/run/scandir
+                -c ${lib.escapeShellArg run}/compiled \
+                -l ${lib.escapeShellArg run}/live \
+                ${lib.escapeShellArg run}/scandir
               ${pkgs.s6-rc}/bin/s6-rc \
-                -l ${out}/run/live \
+                -l ${lib.escapeShellArg run}/live \
                 -u change \
                 ${lib.escapeShellArg (check.serviceName (lib.getName mainService))}
               echo Ready >&3 # Notify readiness to the original stderr
               exec 3<&-
             } &
             exec 5<&-
-            exec ${pkgs.s6}/bin/s6-svscan -d 6 ${out}/run/scandir
+            exec ${pkgs.s6}/bin/s6-svscan -d 6 ${lib.escapeShellArg run}/scandir
           '';
           conf = mkDir {
             compiled = mkCommandFragment ''${pkgs.s6-rc}/bin/s6-rc-compile "$outSubPath" ${lib.concatStringsSep " " serviceDirsOfAllServicesWithDependencies}'';
@@ -260,14 +258,14 @@ let
             "nginx.conf" = mkFile ''
               daemon off;
               error_log stderr notice;
-              pid ${out}/run/nginx.pid;
+              pid "${run}/nginx.pid";
               ${lib.optionalString (extraMainConfig != null) extraMainConfig}
               http {
-                client_body_temp_path ${out}/data/client_body_temp;
-                fastcgi_temp_path     ${out}/data/fastcgi_temp;
-                proxy_temp_path       ${out}/data/proxy_temp;
-                scgi_temp_path        ${out}/data/scgi_temp;
-                uwsgi_temp_path       ${out}/data/uwsgi_temp;
+                client_body_temp_path "${data}/client_body_temp";
+                fastcgi_temp_path     "${data}/fastcgi_temp";
+                proxy_temp_path       "${data}/proxy_temp";
+                scgi_temp_path        "${data}/scgi_temp";
+                uwsgi_temp_path       "${data}/uwsgi_temp";
                 access_log /dev/stdout;
                 include "${nginx}/conf/mime.types";
                 default_type application/octet-stream;
@@ -319,7 +317,7 @@ let
           serviceCreatesAndCleansRunDir = false;
           externalReadinessCheck = simpleReadinessCheck;
           initAndExecServiceWithStderrOnFd3 = ''
-            mkdir -p ${out}/data/sessions
+            mkdir -p ${lib.escapeShellArg data}/sessions
             ${extraInitCommands}
             exec ${php}/bin/php-fpm -y ${out}/conf/php-fpm.conf
           '';
@@ -336,7 +334,7 @@ let
               slowlog = /dev/stderr
               clear_env = yes
               env[PATH] = ${lib.makeBinPath paths}
-              php_admin_value[session.save_path] = ${out}/data/sessions
+              php_admin_value[session.save_path] = ${data}/sessions
               ${extraPoolConfig}
             '';
           };
@@ -374,8 +372,12 @@ let
           dependencies = [ ];
           serviceCreatesDataDir = true;
           serviceCreatesAndCleansRunDir = false;
+          passthru = {
+            pghost = run;
+          };
           externalReadinessCheck =
-            { sock, port }: ''${postgresql}/bin/pg_isready -h ${out}/run -p ${lib.escapeShellArg port}'';
+            { sock, port }:
+            ''${postgresql}/bin/pg_isready -h ${lib.escapeShellArg run} -p ${lib.escapeShellArg port}'';
           initAndExecServiceWithStderrOnFd3 = ''
             if [ ! -e ${lib.escapeShellArg data} ]; then
               ${postgresql}/bin/initdb -D ${lib.escapeShellArg data} -E UTF-8 -A peer
@@ -403,7 +405,7 @@ let
           '';
           conf = mkDir {
             "postgresql.conf" = mkFile ''
-              unix_socket_directories = '${out}/run'
+              unix_socket_directories = '${run}'
               port = ${port}
               ssl = on
               ssl_cert_file = '${certs}/postgresql.crt'
