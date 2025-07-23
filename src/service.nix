@@ -34,6 +34,8 @@ let
       name,
       data,
       run,
+      sockFileName,
+      port,
       dependencies,
       serviceCreatesDataDir,
       serviceCreatesAndCleansRunDir,
@@ -41,7 +43,11 @@ let
       initAndExecServiceWithStderrOnFd3,
       conf ? null,
     }:
+    assert (port == null || builtins.isInt port);
     assert (externalReadinessCheck == null || !lib.hasInfix "\n" externalReadinessCheck);
+    let
+      sock = if sockFileName == null then null else "${run}/${sockFileName}";
+    in
     with getanix.build;
     mkDeriv {
       name = check.serviceName name;
@@ -124,6 +130,8 @@ let
     with getanix.build;
     mkService {
       inherit name data run;
+      sockFileName = null;
+      port = null;
       dependencies = [ ];
       serviceCreatesDataDir = false;
       serviceCreatesAndCleansRunDir = false;
@@ -175,10 +183,10 @@ let
       extraMainConfig ? null,
       extraHttpConfig,
     }:
-    assert builtins.isInt port;
     with getanix.build;
     mkService {
-      inherit name data run;
+      inherit name data run port;
+      sockFileName = null;
       dependencies = extraDependencies;
       serviceCreatesDataDir = false;
       serviceCreatesAndCleansRunDir = false;
@@ -242,6 +250,7 @@ let
       extraInitCommands ? "",
     }:
     let
+      sockFileName = "php-fpm.sock";
       paths = extraPaths ++ [
         pkgs.busybox
         php
@@ -249,11 +258,12 @@ let
     in
     with getanix.build;
     mkService {
-      inherit name data run;
+      inherit name data run sockFileName;
+      port = null;
       dependencies = extraDependencies;
       serviceCreatesDataDir = false;
       serviceCreatesAndCleansRunDir = false;
-      externalReadinessCheck = checkReadyUnixSocket "php-fpm.sock";
+      externalReadinessCheck = checkReadyUnixSocket sockFileName;
       initAndExecServiceWithStderrOnFd3 = ''
         mkdir -p ${out}/data/sessions
         ${extraInitCommands}
@@ -267,7 +277,7 @@ let
           systemd_interval = 0
           ${extraGlobalConfig}
           [www]
-          listen = ${out}/run/php-fpm.sock
+          listen = ${out}/run/${sockFileName}
           catch_workers_output = yes
           slowlog = /dev/stderr
           clear_env = yes
@@ -290,10 +300,10 @@ let
       selfSignedCertOptions ? "ed448 -days 36500",
       extraConfig ? "",
     }:
-    assert builtins.isInt port;
     with getanix.build;
     mkService {
-      inherit name data run;
+      inherit name data run port;
+      sockFileName = ".s.PGSQL.${toString port}";
       dependencies = [ ];
       serviceCreatesDataDir = true;
       serviceCreatesAndCleansRunDir = false;
