@@ -205,6 +205,71 @@ let
 in
 
 let
+  mkKeycloakService =
+    {
+      name ? "keycloak",
+      data,
+      run,
+      port,
+      keycloak ? pkgs.keycloak,
+      postgresqlService,
+      extraConfig,
+    }:
+    mkService {
+      inherit name data run;
+      sockFileName = null;
+      inherit port;
+      spec =
+        {
+          data,
+          run,
+          sock,
+          port,
+        }:
+        with getanix.build;
+        let
+          config = ''
+            db = postgres
+            db-url = jdbc:postgresql://localhost/keycloak?socketFactory=org.newsclub.net.unix.AFUNIXSocketFactory$FactoryArg&socketFactoryArg=${postgresqlService.sock}
+            http-port = ${port}
+            ${extraConfig {
+              inherit port;
+            }}
+          '';
+          keycloakConf = mkDeriv {
+            name = "keycloak-conf";
+            out = mkDir { conf = mkDir { "keycloak.conf" = mkFile config; }; };
+          };
+          keycloakBuild = keycloak.override { confFile = "${keycloakConf}/conf/keycloak.conf"; };
+        in
+        {
+          dependencies = [ postgresqlService ];
+          serviceCreatesDataDir = false;
+          serviceCreatesAndCleansRunDir = false;
+          externalReadinessCheck = simpleReadinessCheck;
+          initAndExecServiceWithStderrOnFd3 = ''
+            if ! ${postgresqlService}/bin/psql keycloak </dev/null >/dev/null 2>&1; then
+              echo "$(date +'%Y-%m-%d %H:%M:%S') Creating database ..."
+              ${postgresqlService}/bin/createdb -E UTF-8 keycloak
+            fi
+            ln -s ${keycloakBuild}/lib ${lib.escapeShellArg run}/
+            ln -s ${keycloakBuild}/providers ${lib.escapeShellArg run}/
+            mkdir ${lib.escapeShellArg run}/conf
+            ln -s ${keycloakBuild}/conf/keycloak.conf ${lib.escapeShellArg run}/conf/
+            exec ${keycloakBuild}/bin/kc.sh \
+              start \
+              --optimized \
+              -Dkc.home.dir=${lib.escapeShellArg run} \
+              -Djboss.server.config.dir=${lib.escapeShellArg run}/conf
+          '';
+          conf = {
+            "keycloak.conf" = mkSymlink "${keycloakConf}/conf/keycloak.conf";
+          };
+        };
+    };
+in
+
+let
   mkNginxService =
     {
       name ? "nginx",
@@ -456,6 +521,7 @@ in
     simpleReadinessCheck
     mkService
     mkServiceManager
+    mkKeycloakService
     mkNginxService
     mkPhpFpmService
     mkPostgresqlService
