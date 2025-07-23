@@ -55,7 +55,10 @@ let
           initAndExecServiceWithStderrOnFd3,
           conf ? null,
         }:
-        assert (externalReadinessCheck == null || !lib.hasInfix "\n" externalReadinessCheck);
+        let
+          externalReadinessCheckCommand =
+            if externalReadinessCheck == null then null else externalReadinessCheck { inherit sock port; };
+        in
         with getanix.build;
         mkDeriv {
           name = check.serviceName name;
@@ -75,10 +78,13 @@ let
                   mkdir -p -- "$(readlink ${out}/run)"
                   find ${out}/run/ -mindepth 1 -xdev -delete
                 ''}
-                ${lib.optionalString (externalReadinessCheck != null) ''
+                ${lib.optionalString (externalReadinessCheckCommand != null) ''
                   {
                     sleep 0.01
-                    while ! ${externalReadinessCheck} </dev/null >/dev/null 2>/dev/null; do
+                    while ! ${
+                      assert (!lib.hasInfix "\n" externalReadinessCheckCommand);
+                      externalReadinessCheckCommand
+                    } </dev/null >/dev/null 2>/dev/null; do
                       sleep 0.01
                     done
                     echo Ready >&3 # Notify readiness to the original stderr
@@ -226,7 +232,7 @@ let
           dependencies = extraDependencies;
           serviceCreatesDataDir = false;
           serviceCreatesAndCleansRunDir = false;
-          externalReadinessCheck = checkReadyPort { inherit sock port; };
+          externalReadinessCheck = checkReadyPort;
           initAndExecServiceWithStderrOnFd3 = ''
             if [ ! -e   ${out}/data/certs/server.key ]; then
               echo "$(date +'%Y-%m-%d %H:%M:%S') Generating self-signed certificate ..."
@@ -308,7 +314,7 @@ let
           dependencies = extraDependencies;
           serviceCreatesDataDir = false;
           serviceCreatesAndCleansRunDir = false;
-          externalReadinessCheck = checkReadyUnixSocket { inherit sock port; };
+          externalReadinessCheck = checkReadyUnixSocket;
           initAndExecServiceWithStderrOnFd3 = ''
             mkdir -p ${out}/data/sessions
             ${extraInitCommands}
@@ -362,7 +368,8 @@ let
           dependencies = [ ];
           serviceCreatesDataDir = true;
           serviceCreatesAndCleansRunDir = false;
-          externalReadinessCheck = ''${postgresql}/bin/pg_isready -h ${out}/run -p ${lib.escapeShellArg port}'';
+          externalReadinessCheck =
+            { sock, port }: ''${postgresql}/bin/pg_isready -h ${out}/run -p ${lib.escapeShellArg port}'';
           initAndExecServiceWithStderrOnFd3 = ''
             if [ ! -e ${lib.escapeShellArg data} ]; then
               ${postgresql}/bin/initdb -D ${lib.escapeShellArg data} -E UTF-8 -A peer
