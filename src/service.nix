@@ -55,11 +55,11 @@ let
           initAndExecServiceWithStderrOnFd3,
           conf ? null,
         }:
+        with getanix.build;
         let
           externalReadinessCheckCommand =
             if externalReadinessCheck == null then null else externalReadinessCheck { inherit sock port; };
         in
-        with getanix.build;
         mkDeriv {
           name = check.serviceName name;
           passthru = lib.attrsets.unionOfDisjoint passthru { inherit sock port; };
@@ -154,13 +154,13 @@ let
           sock,
           port,
         }:
+        with getanix.build;
         let
           services = [ mainService ] ++ extraServices;
           serviceDirsOfAllServicesWithDependencies = builtins.filter lib.pathIsDirectory (
             builtins.map (drv: "${drv}/service") (getanix.closure.closureList services)
           );
         in
-        with getanix.build;
         {
           dependencies = [ ];
           serviceCreatesDataDir = false;
@@ -225,10 +225,10 @@ let
           sock,
           port,
         }:
+        with getanix.build;
         let
           certs = "${data}/certs";
         in
-        with getanix.build;
         {
           dependencies = extraDependencies;
           serviceCreatesDataDir = false;
@@ -304,13 +304,13 @@ let
           sock,
           port,
         }:
+        with getanix.build;
         let
           paths = extraPaths ++ [
             pkgs.busybox
             php
           ];
         in
-        with getanix.build;
         {
           dependencies = extraDependencies;
           serviceCreatesDataDir = false;
@@ -364,11 +364,11 @@ let
           sock,
           port,
         }:
+        with getanix.build;
         let
           certs = "${data}/certs";
           pghost = run;
         in
-        with getanix.build;
         {
           dependencies = [ ];
           serviceCreatesDataDir = true;
