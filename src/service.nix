@@ -168,21 +168,21 @@ let
       name ? "nginx",
       data,
       run,
+      port,
       nginx ? pkgs.nginx,
       extraDependencies ? [ ],
-      mainPort,
       selfSignedCertOptions ? "ed448 -days 36500",
       extraMainConfig ? null,
       extraHttpConfig,
     }:
-    assert builtins.isInt mainPort;
+    assert builtins.isInt port;
     with getanix.build;
     mkService {
       inherit name data run;
       dependencies = extraDependencies;
       serviceCreatesDataDir = false;
       serviceCreatesAndCleansRunDir = false;
-      externalReadinessCheck = checkReadyPort mainPort;
+      externalReadinessCheck = checkReadyPort port;
       initAndExecServiceWithStderrOnFd3 = ''
         if [ ! -e   ${out}/data/certs/server.key ]; then
           echo "$(date +'%Y-%m-%d %H:%M:%S') Generating self-signed certificate ..."
@@ -200,7 +200,7 @@ let
                     ${out}/data/certs/server-with-intermediates.crt
           echo "$(date +'%Y-%m-%d %H:%M:%S') Finished."
         fi
-        echo "Listening on main port ${toString mainPort}"
+        echo "Listening on port ${toString port}"
         exec ${nginx}/bin/nginx -e /dev/stdout -c ${out}/conf/nginx.conf
       '';
       conf = mkDir {
@@ -221,7 +221,7 @@ let
             access_log /dev/stdout;
             include mime.types;
             default_type application/octet-stream;
-            ${extraHttpConfig mainPort}
+            ${extraHttpConfig port}
           }
         '';
       };
