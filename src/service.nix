@@ -254,8 +254,6 @@ let
             exec ${nginx}/bin/nginx -e /dev/stdout -c ${out}/conf/nginx.conf
           '';
           conf = mkDir {
-            certs = mkSymlink "${out}/data/certs";
-            "fastcgi_params" = mkSymlink "${nginx}/conf/fastcgi_params";
             "nginx.conf" = mkFile ''
               daemon off;
               error_log stderr notice;
@@ -270,7 +268,11 @@ let
                 access_log /dev/stdout;
                 include "${nginx}/conf/mime.types";
                 default_type application/octet-stream;
-                ${extraHttpConfig { inherit port; }}
+                ${extraHttpConfig {
+                  certs = "${data}/certs";
+                  fastcgi_params = "${nginx}/conf/fastcgi_params";
+                  inherit port;
+                }}
               }
             '';
           };
