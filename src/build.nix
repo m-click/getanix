@@ -89,6 +89,10 @@ let
 in
 
 let
+  mkCopy = mkCommandFragmentWithArg ''cp -p -- $(${writeArgToStdout}) "$outSubPath"'';
+in
+
+let
   mkFile = mkCommandFragmentWithArg ''${writeArgToStdout} >"$outSubPath"'';
 in
 
@@ -152,6 +156,7 @@ in
     mkFile
     mkScript
     mkSymlink
+    mkCopy
     mkDir
     mkDeriv
     ;
