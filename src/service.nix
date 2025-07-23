@@ -265,7 +265,7 @@ let
                 access_log /dev/stdout;
                 include mime.types;
                 default_type application/octet-stream;
-                ${extraHttpConfig port}
+                ${extraHttpConfig { inherit port; }}
               }
             '';
           };
