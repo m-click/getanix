@@ -54,6 +54,7 @@ let
           externalReadinessCheck,
           initAndExecServiceWithStderrOnFd3,
           conf ? { },
+          tools ? { },
         }:
         with getanix.build;
         let
@@ -64,36 +65,38 @@ let
           name = check.serviceName name;
           passthru = lib.attrsets.unionOfDisjoint passthru { inherit sock port; };
           out = mkDir {
-            bin = mkDir {
-              "run-${check.serviceName name}" = mkScript ''
-                #!${pkgs.busybox}/bin/sh
-                set -Cefu
-                exec 3>&2 2>&1
-                export PATH=${lib.makeBinPath [ pkgs.busybox ]}
-                cd /
-                ${lib.optionalString (!serviceCreatesDataDir) ''
-                  mkdir -p -- ${lib.escapeShellArg data}
-                ''}
-                ${lib.optionalString (!serviceCreatesAndCleansRunDir) ''
-                  mkdir -p -- ${lib.escapeShellArg run}
-                  find ${lib.escapeShellArg run}/ -mindepth 1 -xdev -delete
-                ''}
-                ${lib.optionalString (externalReadinessCheckCommand != null) ''
-                  {
-                    sleep 0.01
-                    while ! ${
-                      assert (!lib.hasInfix "\n" externalReadinessCheckCommand);
-                      externalReadinessCheckCommand
-                    } </dev/null >/dev/null 2>/dev/null; do
+            bin = mkDir (
+              lib.attrsets.unionOfDisjoint tools {
+                "run-${check.serviceName name}" = mkScript ''
+                  #!${pkgs.busybox}/bin/sh
+                  set -Cefu
+                  exec 3>&2 2>&1
+                  export PATH=${lib.makeBinPath [ pkgs.busybox ]}
+                  cd /
+                  ${lib.optionalString (!serviceCreatesDataDir) ''
+                    mkdir -p -- ${lib.escapeShellArg data}
+                  ''}
+                  ${lib.optionalString (!serviceCreatesAndCleansRunDir) ''
+                    mkdir -p -- ${lib.escapeShellArg run}
+                    find ${lib.escapeShellArg run}/ -mindepth 1 -xdev -delete
+                  ''}
+                  ${lib.optionalString (externalReadinessCheckCommand != null) ''
+                    {
                       sleep 0.01
-                    done
-                    echo Ready >&3 # Notify readiness to the original stderr
-                    exec 3<&-
-                  } &
-                ''}
-                ${initAndExecServiceWithStderrOnFd3}
-              '';
-            };
+                      while ! ${
+                        assert (!lib.hasInfix "\n" externalReadinessCheckCommand);
+                        externalReadinessCheckCommand
+                      } </dev/null >/dev/null 2>/dev/null; do
+                        sleep 0.01
+                      done
+                      echo Ready >&3 # Notify readiness to the original stderr
+                      exec 3<&-
+                    } &
+                  ''}
+                  ${initAndExecServiceWithStderrOnFd3}
+                '';
+              }
+            );
             conf = mkDir conf;
             service = mkDir {
               "${check.serviceName name}" = mkDir {
