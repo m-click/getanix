@@ -19,13 +19,13 @@ let
 in
 
 let
-  checkReadyPort = { sock, port }:
-    ''${pkgs.netcat}/bin/nc -N -- 127.0.0.1 ${lib.escapeShellArg port}'';
-in
-
-let
-  checkReadyUnixSocket = { sock, port }:
-    ''${pkgs.netcat}/bin/nc -NU -- ${lib.escapeShellArg sock}'';
+  simpleReadinessCheck =
+    { sock, port }:
+    assert (sock != null || port != null);
+    if sock != null then
+      ''${pkgs.netcat}/bin/nc -NU -- ${lib.escapeShellArg sock}''
+    else
+      ''${pkgs.netcat}/bin/nc -N -- 127.0.0.1 ${lib.escapeShellArg port}'';
 in
 
 let
@@ -232,7 +232,7 @@ let
           dependencies = extraDependencies;
           serviceCreatesDataDir = false;
           serviceCreatesAndCleansRunDir = false;
-          externalReadinessCheck = checkReadyPort;
+          externalReadinessCheck = simpleReadinessCheck;
           initAndExecServiceWithStderrOnFd3 = ''
             if [ ! -e   ${out}/data/certs/server.key ]; then
               echo "$(date +'%Y-%m-%d %H:%M:%S') Generating self-signed certificate ..."
@@ -314,7 +314,7 @@ let
           dependencies = extraDependencies;
           serviceCreatesDataDir = false;
           serviceCreatesAndCleansRunDir = false;
-          externalReadinessCheck = checkReadyUnixSocket;
+          externalReadinessCheck = simpleReadinessCheck;
           initAndExecServiceWithStderrOnFd3 = ''
             mkdir -p ${out}/data/sessions
             ${extraInitCommands}
@@ -425,8 +425,7 @@ in
 
 {
   inherit
-    checkReadyPort
-    checkReadyUnixSocket
+    simpleReadinessCheck
     mkService
     mkServiceManager
     mkNginxService
