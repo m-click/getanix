@@ -456,7 +456,7 @@ let
             ''${postgresql}/bin/pg_isready -h ${lib.escapeShellArg run} -p ${lib.escapeShellArg port}'';
           initAndExecServiceWithStderrOnFd3 = ''
             if [ ! -e ${lib.escapeShellArg data} ]; then
-              ${postgresql}/bin/initdb -D ${lib.escapeShellArg data} -E UTF-8 -A peer
+              ${postgresql}/bin/initdb -D ${lib.escapeShellArg data} -E UTF-8 --locale-provider=builtin --locale=C -A peer
             fi
             if [ ! -e   ${lib.escapeShellArg certs}/postgresql.key ]; then
               echo "$(date +'%Y-%m-%d %H:%M:%S') Generating self-signed certificate ..."
