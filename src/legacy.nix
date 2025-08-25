@@ -59,7 +59,6 @@ let
         ${group}:x:${toString gid}:
       '';
       packagesClosure = getClosure packages;
-      binDir = symlinkJoinSubdirs packages "bin";
       emacsDir = symlinkJoinSubdirs packagesClosure "share/emacs";
       emacsVersionLispDir =
         pkgs.lib.lists.findSingle pkgs.lib.filesystem.pathIsDirectory "" "error-multiple-emacs-versions"
@@ -125,8 +124,8 @@ let
         --bind "$basedir/run" /run \
         --bind "$basedir/tmp" /tmp \
         --bind "$basedir/var" /var \
-        --symlink usr/bin /bin \
-        --symlink ${binDir} /usr/bin \
+        --symlink ${pkgs.bash}/bin/sh /bin/sh \
+        --symlink ${pkgs.bash}/bin/env /usr/bin/env \
         --symlink ${hosts} /etc/hosts \
         --symlink ${passwdFile} /etc/passwd \
         --symlink ${groupFile} /etc/group \
@@ -137,11 +136,27 @@ let
         --setenv EMACSLOADPATH '${emacsLoadPathOrEmpty}' \
         --setenv FONTCONFIG_FILE ${fontsConf} \
         --setenv HOME /homedir \
-        --setenv LIBRARY_PATH ${libDir} \
+        --setenv LIBRARY_PATH ${
+          pkgs.lib.escapeShellArg (
+            builtins.concatStringsSep ":" (
+              builtins.filter builtins.pathExists (
+                builtins.map (package: "${package}/lib") packagesClosure
+              )
+            )
+          )
+        } \
         --setenv NIXPKGS_ALLOW_INSECURE "''${NIXPKGS_ALLOW_INSECURE:-0}" \
         --setenv NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt \
         --setenv OCAMLPATH '${ocamlSiteLibDirOrEmpty}' \
-        --setenv PATH /usr/bin \
+        --setenv PATH ${
+          pkgs.lib.escapeShellArg (
+            builtins.concatStringsSep ":" (
+              builtins.filter builtins.pathExists (
+                builtins.map (package: "${package}/bin") packages
+              )
+            )
+          )
+        } \
         --setenv TERM "''${TERM:-}" \
         -- \
         ${bash}/bin/sh -euc '
