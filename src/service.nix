@@ -143,6 +143,7 @@ let
       name ? "services",
       data,
       run,
+      initialTimeoutMilliseconds ? 0, # Use with care! Setting this to a non-zero value might result in a system not fully starting up on e.g. long database recorvery.
       mainService,
       extraServices ? [ ],
     }:
@@ -189,7 +190,9 @@ let
                 ${lib.escapeShellArg run}/scandir
               ${pkgs.s6-rc}/bin/s6-rc \
                 -l ${lib.escapeShellArg run}/live \
-                -u change \
+                -t ${lib.escapeShellArg (toString initialTimeoutMilliseconds)} \
+                -u \
+                change \
                 ${lib.escapeShellArg (check.serviceName (lib.getName mainService))}
               echo Ready >&3 # Notify readiness to the original stderr
               exec 3<&-
