@@ -203,6 +203,13 @@ let
           conf = {
             compiled = mkCommandFragment ''${pkgs.s6-rc}/bin/s6-rc-compile "$outSubPath" ${lib.concatStringsSep " " serviceDirsOfAllServicesWithDependencies}'';
           };
+          tools = {
+            s6-rc = mkScript ''
+              #!${pkgs.busybox}/bin/sh
+              set -Cefu
+              exec ${pkgs.s6-rc}/bin/s6-rc -l ${lib.escapeShellArg run}/live "$@"
+            '';
+          };
         };
     };
 in
