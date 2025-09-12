@@ -47,6 +47,7 @@ let
       group ? user,
       uid ? 1000,
       gid ? uid,
+      libraries ? [],
       packages,
     }:
     assert builtins.isInt uid;
@@ -58,6 +59,7 @@ let
       groupFile = pkgs.writeText "group" ''
         ${group}:x:${toString gid}:
       '';
+      librariesClosure = getClosure libraries;
       packagesClosure = getClosure packages;
       emacsDir = symlinkJoinSubdirs packagesClosure "share/emacs";
       emacsVersionLispDir =
@@ -132,6 +134,15 @@ let
         --ro-bind-try /etc/resolv.conf /etc/resolv.conf \
         --bind . "$(pwd)" \
         --remount-ro / \
+        --setenv CPATH ${
+          pkgs.lib.escapeShellArg (
+            builtins.concatStringsSep ":" (
+              builtins.filter builtins.pathExists (
+                builtins.map (package: "${package}/include") librariesClosure
+              )
+            )
+          )
+        } \
         --setenv DISPLAY "''${DISPLAY:-}" \
         --setenv EMACSLOADPATH '${emacsLoadPathOrEmpty}' \
         --setenv FONTCONFIG_FILE ${fontsConf} \
@@ -140,7 +151,7 @@ let
           pkgs.lib.escapeShellArg (
             builtins.concatStringsSep ":" (
               builtins.filter builtins.pathExists (
-                builtins.map (package: "${package}/lib") packagesClosure
+                builtins.map (package: "${package}/lib") librariesClosure
               )
             )
           )
