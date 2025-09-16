@@ -29,6 +29,36 @@ let
 in
 
 let
+  mkDependenciesOrContentsDir =
+    dependencies:
+    with getanix.build;
+    mkDir (
+      builtins.foldl' lib.attrsets.unionOfDisjoint { } (
+        builtins.map (dependency: {
+          "${check.serviceName (lib.getName dependency)}" = mkFile "${dependency}";
+        }) dependencies
+      )
+    );
+in
+
+let
+  mkServiceBundle =
+    { name, dependencies }:
+    with getanix.build;
+    mkDeriv {
+      name = check.serviceName name;
+      out = mkDir {
+        service = mkDir {
+          "${check.serviceName name}" = mkDir {
+            type = mkFile "bundle";
+            "contents.d" = mkDependenciesOrContentsDir dependencies;
+          };
+        };
+      };
+    };
+in
+
+let
   mkService =
     {
       name,
@@ -103,13 +133,7 @@ let
                 type = mkFile "longrun";
                 notification-fd = mkFile "3";
                 producer-for = mkFile "${check.serviceName name}@log";
-                "dependencies.d" = mkDir (
-                  builtins.foldl' lib.attrsets.unionOfDisjoint { } (
-                    builtins.map (dependency: {
-                      "${check.serviceName (lib.getName dependency)}" = mkFile "${dependency}";
-                    }) dependencies
-                  )
-                );
+                "dependencies.d" = mkDependenciesOrContentsDir dependencies;
                 run = mkFile ''
                   #!${pkgs.busybox}/bin/sh
                   exec ${out}/bin/run-${check.serviceName name} 2>&3
@@ -144,9 +168,19 @@ let
       data,
       run,
       initialTimeoutMilliseconds ? 0, # Use with care! Setting this to a non-zero value might result in a system not fully starting up on e.g. long database recorvery.
-      mainService,
+      defaultServices,
       extraServices ? [ ],
     }:
+    let
+      defaultServiceBundle = mkServiceBundle {
+        name = "default";
+        dependencies = defaultServices;
+      };
+      services = [ defaultServiceBundle ] ++ extraServices;
+      serviceDirsOfAllServicesWithDependencies = builtins.filter lib.pathIsDirectory (
+        builtins.map (drv: "${drv}/service") (getanix.closure.closureList services)
+      );
+    in
     mkService {
       inherit name data run;
       sockFileName = null;
@@ -159,12 +193,6 @@ let
           port,
         }:
         with getanix.build;
-        let
-          services = [ mainService ] ++ extraServices;
-          serviceDirsOfAllServicesWithDependencies = builtins.filter lib.pathIsDirectory (
-            builtins.map (drv: "${drv}/service") (getanix.closure.closureList services)
-          );
-        in
         {
           dependencies = [ ];
           serviceCreatesDataDir = false;
@@ -193,7 +221,7 @@ let
                 -t ${lib.escapeShellArg (toString initialTimeoutMilliseconds)} \
                 -u \
                 change \
-                ${lib.escapeShellArg (check.serviceName (lib.getName mainService))}
+                ${lib.escapeShellArg (check.serviceName (lib.getName defaultServiceBundle))}
               echo Ready >&3 # Notify readiness to the original stderr
               exec 3<&-
             } &
@@ -530,6 +558,7 @@ in
   inherit
     simpleReadinessCheck
     mkService
+    mkServiceBundle
     mkServiceManager
     mkKeycloakService
     mkNginxService
