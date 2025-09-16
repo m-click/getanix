@@ -47,7 +47,7 @@ let
       group ? user,
       uid ? 1000,
       gid ? uid,
-      libraries ? [],
+      libraries ? [ ],
       packages,
     }:
     assert builtins.isInt uid;
@@ -137,9 +137,7 @@ let
         --setenv CPATH ${
           pkgs.lib.escapeShellArg (
             builtins.concatStringsSep ":" (
-              builtins.filter builtins.pathExists (
-                builtins.map (package: "${package}/include") librariesClosure
-              )
+              builtins.filter builtins.pathExists (builtins.map (package: "${package}/include") librariesClosure)
             )
           )
         } \
@@ -150,9 +148,7 @@ let
         --setenv LIBRARY_PATH ${
           pkgs.lib.escapeShellArg (
             builtins.concatStringsSep ":" (
-              builtins.filter builtins.pathExists (
-                builtins.map (package: "${package}/lib") librariesClosure
-              )
+              builtins.filter builtins.pathExists (builtins.map (package: "${package}/lib") librariesClosure)
             )
           )
         } \
@@ -162,9 +158,7 @@ let
         --setenv PATH ${
           pkgs.lib.escapeShellArg (
             builtins.concatStringsSep ":" (
-              builtins.filter builtins.pathExists (
-                builtins.map (package: "${package}/bin") packages
-              )
+              builtins.filter builtins.pathExists (builtins.map (package: "${package}/bin") packages)
             )
           )
         } \
