@@ -491,7 +491,7 @@ let
           passthru = { inherit pghost; };
           externalReadinessCheck =
             { sock, port }:
-            ''${postgresql}/bin/pg_isready -h ${lib.escapeShellArg run} -p ${lib.escapeShellArg port}'';
+            ''${postgresql}/bin/pg_isready -h ${lib.escapeShellArg run} -p ${lib.escapeShellArg port} -d template1'';
           initAndExecServiceWithStderrOnFd3 = ''
             if [ ! -e ${lib.escapeShellArg data} ]; then
               ${postgresql}/bin/initdb -D ${lib.escapeShellArg data} -E UTF-8 --locale-provider=builtin --locale=C -A peer
