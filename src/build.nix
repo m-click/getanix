@@ -136,7 +136,7 @@ let
         (mkCommandFragment ''outSubPath=$out'')
         out
       ];
-      fileArgs = builtins.foldl' lib.attrsets.unionOfDisjoint { } (
+      fileArgs = getanix.attrsets.mergeDisjointAttrSets (
         lib.lists.imap1 (i: mkFileArgs: mkFileArgs i) fragment.mkFileArgsList
       );
       derivationArgs = lib.attrsets.unionOfDisjoint fileArgs {
