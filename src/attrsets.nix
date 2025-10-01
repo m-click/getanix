@@ -11,6 +11,33 @@ let
   mergeDisjointAttrSets = attrSetList: builtins.foldl' lib.attrsets.unionOfDisjoint { } attrSetList;
 in
 
+let
+  binAttrSetOfPath =
+    path:
+    if lib.pathIsDirectory path then
+      let
+        binDir = "${if lib.isDerivation path then lib.getBin path else path}/bin";
+      in
+      builtins.mapAttrs (name: fileType: "${binDir}/${name}") (builtins.readDir binDir)
+    else if lib.isDerivation path then
+      { ${lib.getName path} = path; }
+    else
+      { ${builtins.unsafeDiscardStringContext (baseNameOf path)} = path; };
+in
+
+let
+  binAttrSetOfPaths = paths: mergeDisjointAttrSets (builtins.map binAttrSetOfPath paths);
+in
+
+let
+  mapBinAttrSetOfPaths = paths: f: builtins.mapAttrs (name: path: f path) (binAttrSetOfPaths paths);
+in
+
 {
-  inherit mergeDisjointAttrSets;
+  inherit
+    mergeDisjointAttrSets
+    binAttrSetOfPath
+    binAttrSetOfPaths
+    mapBinAttrSetOfPaths
+    ;
 }
