@@ -9,13 +9,7 @@ in
 
 let
   fragmentType = "getanix.build.fragment";
-in
-
-let
   out = getanix.strings.createReplacementMarker fragmentType "out";
-in
-
-let
   writeArgToStdout = getanix.strings.createReplacementMarker fragmentType "writeArgToStdout";
 in
 
