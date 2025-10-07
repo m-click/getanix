@@ -174,6 +174,7 @@ in
 
 {
   inherit
+    adjustNixSymlinks
     bubblewrapStaticWithForwardSignals
     mkChNixRootSymlink
     mkChNixRootWrapper
