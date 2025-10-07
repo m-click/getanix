@@ -107,8 +107,8 @@ let
   mkChNixRootEnv =
     {
       name ? "chnixroot-env",
-      binSandboxPaths ? [ ],
       binSymlinkPaths ? [ ],
+      binSandboxPaths ? [ ],
       bubblewrapStatic ? defaultBubblewrapStatic,
       forwardSignals ? defaultForwardSignals,
       nixSslCertFile ? defaultNixSslCertFile,
@@ -119,10 +119,10 @@ let
       out = mkDir {
         bin = mkDir (
           getanix.attrsets.mergeDisjointAttrSets [
+            (getanix.attrsets.mapBinAttrSetOfPaths binSymlinkPaths mkChNixRootSymlink)
             (getanix.attrsets.mapBinAttrSetOfPaths binSandboxPaths (mkChNixRootWrapper {
               inherit bubblewrapStatic forwardSignals nixSslCertFile;
             }))
-            (getanix.attrsets.mapBinAttrSetOfPaths binSymlinkPaths mkChNixRootSymlink)
           ]
         );
       };
@@ -141,8 +141,8 @@ let
     }:
     let
       chNixRootEnv = mkChNixRootEnv {
-        binSandboxPaths = [ nix ];
         binSymlinkPaths = [ adjustNixSymlinks ];
+        binSandboxPaths = [ nix ];
         inherit bubblewrapStatic forwardSignals nixSslCertFile;
       };
       chNixRootEnvClosure = pkgs.writeClosure [ chNixRootEnv ];
