@@ -14,12 +14,17 @@ let
 in
 
 let
-  isValidPathComponent =
+  checkValidPathComponent =
     name:
-    (builtins.match ''[ -~]+'' name != null)
-    && !(builtins.match ''.*[\/:].*'' name != null)
-    && !(builtins.match ''.*[.]'' name != null)
-    && !(builtins.match ''.*[.][.].*'' name != null);
+    if
+      (builtins.match ''[ -~]+'' name != null)
+      && !(builtins.match ''.*[\/:].*'' name != null)
+      && !(builtins.match ''.*[.]'' name != null)
+      && !(builtins.match ''.*[.][.].*'' name != null)
+    then
+      name
+    else
+      abort "Invalid path component: ${lib.strings.escapeNixString name}";
 in
 
 let
@@ -107,9 +112,8 @@ let
       (concatFragments (
         lib.mapAttrsToList (
           pathComponent: entry:
-          assert isValidPathComponent pathComponent;
           concatFragments [
-            (mkCommandFragment ''(outSubPath=$outSubPath/${lib.escapeShellArg pathComponent}'')
+            (mkCommandFragment ''(outSubPath=$outSubPath/${lib.escapeShellArg (checkValidPathComponent pathComponent)}'')
             entry
             (mkCommandFragment '')'')
           ]
