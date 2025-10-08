@@ -18,7 +18,9 @@ let
       let
         binDir = "${if lib.isDerivation path then lib.getBin path else path}/bin";
       in
-      builtins.mapAttrs (name: fileType: "${binDir}/${name}") (builtins.readDir binDir)
+      lib.concatMapAttrs (
+        name: fileType: if lib.hasPrefix "." name then { } else { ${name} = "${binDir}/${name}"; }
+      ) (builtins.readDir binDir)
     else if lib.isDerivation path then
       { ${lib.getName path} = path; }
     else
