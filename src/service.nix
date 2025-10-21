@@ -8,6 +8,12 @@ let
 in
 
 let
+  # Around 2027, this should be replaced by "ed25519 -days 36500",
+  # see also: https://blog.ipfs.tech/2025-08-ed25519/#what-s-next
+  defaultSelfSignedCertOptions = "rsa:4096 -sha512 -days 36500";
+in
+
+let
   check = builtins.mapAttrs getanix.strings.checkRegex {
     serviceName = ''[a-z][0-9a-z]{0,15}(-[0-9a-z]{1,16}){0,8}'';
     user = ''[a-z][0-9a-z-]{0,31}'';
@@ -316,7 +322,7 @@ let
       port,
       nginx ? pkgs.nginx,
       extraDependencies ? [ ],
-      selfSignedCertOptions ? "ed448 -days 36500",
+      selfSignedCertOptions ? defaultSelfSignedCertOptions,
       extraMainConfig ? null,
       extraHttpConfig,
     }:
@@ -456,7 +462,7 @@ let
       run,
       port ? 5432,
       postgresql ? pkgs.postgresql,
-      selfSignedCertOptions ? "ed448 -days 36500",
+      selfSignedCertOptions ? defaultSelfSignedCertOptions,
       extraConfig ? "",
     }:
     mkService {
