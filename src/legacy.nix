@@ -132,6 +132,7 @@ let
         --symlink ${passwdFile} /etc/passwd \
         --symlink ${groupFile} /etc/group \
         --ro-bind-try /etc/resolv.conf /etc/resolv.conf \
+        --ro-bind-try /etc/services /etc/services \
         --bind . "$(pwd)" \
         --remount-ro / \
         --setenv CPATH ${
