@@ -97,11 +97,11 @@ let
 in
 
 let
-  mkSymlink = mkCommandFragmentWithArg ''ln -sT -- $(${writeArgToStdout}) "$outSubPath"'';
+  mkSymlink = mkCommandFragmentWithArg ''ln -sT -- "$(${writeArgToStdout})" "$outSubPath"'';
 in
 
 let
-  mkCopy = mkCommandFragmentWithArg ''cp -p -- $(${writeArgToStdout}) "$outSubPath"'';
+  mkCopy = mkCommandFragmentWithArg ''cp -p -- "$(${writeArgToStdout})" "$outSubPath"'';
 in
 
 let
