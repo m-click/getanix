@@ -97,7 +97,11 @@ let
 in
 
 let
-  mkSymlink = mkCommandFragmentWithArg ''ln -sT -- "$(${writeArgToStdout})" "$outSubPath"'';
+  mkAbsSymlink = mkCommandFragmentWithArg ''ln -sT -- "$(realpath -s -- "$(${writeArgToStdout})")" "$outSubPath"'';
+in
+
+let
+  mkRelSymlink = mkCommandFragmentWithArg ''ln -rsT -- "$(${writeArgToStdout})" "$outSubPath"'';
 in
 
 let
@@ -158,7 +162,8 @@ in
     mkCommandFragmentWithArg
     mkFile
     mkScript
-    mkSymlink
+    mkAbsSymlink
+    mkRelSymlink
     mkCopy
     mkDir
     mkDeriv

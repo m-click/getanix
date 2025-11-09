@@ -307,7 +307,7 @@ let
               -Djboss.server.config.dir=${lib.escapeShellArg run}/conf
           '';
           conf = {
-            "keycloak.conf" = mkSymlink "${keycloakConf}/conf/keycloak.conf";
+            "keycloak.conf" = mkRelSymlink "${keycloakConf}/conf/keycloak.conf";
           };
         };
     };

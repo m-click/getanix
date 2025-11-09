@@ -63,10 +63,6 @@ let
 in
 
 let
-  mkChNixRootSymlink = path: getanix.build.mkSymlink "../../${lib.removePrefix "/nix/store/" path}";
-in
-
-let
   mkChNixRootWrapper =
     {
       bubblewrapStatic ? defaultBubblewrapStatic,
@@ -119,7 +115,7 @@ let
       out = mkDir {
         bin = mkDir (
           getanix.attrsets.mergeDisjointAttrSets [
-            (getanix.attrsets.mapBinAttrSetOfPaths binSymlinkPaths mkChNixRootSymlink)
+            (getanix.attrsets.mapBinAttrSetOfPaths binSymlinkPaths mkRelSymlink)
             (getanix.attrsets.mapBinAttrSetOfPaths binSandboxPaths (mkChNixRootWrapper {
               inherit bubblewrapStatic forwardSignals nixSslCertFile;
             }))
@@ -176,7 +172,6 @@ in
   inherit
     adjustNixSymlinks
     bubblewrapStaticWithForwardSignals
-    mkChNixRootSymlink
     mkChNixRootWrapper
     mkChNixRootEnv
     packChNixRootEnv
